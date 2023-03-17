@@ -66,23 +66,26 @@ class GraphNet:
         flow_total = 0
 
         for node_index in cluster_order:
-            # put the node into the current adjacency matrix
+            # put the node into the current adjacency matrix, add masking for nodes in network
             adjacency_matrix_current[node_index] = adjacency_matrix_full[node_index]
             adjacency_matrix_current[:, node_index] = adjacency_matrix_full[:, node_index]
 
             cluster_feature_list = []
             for cluster_to_test in range(self.n_clusters):
-                cluster_feature_list.append(self.cluster_features(adjacency_matrix_current, cluster_assignments))
+                cluster_assignments_temp = cluster_assignments.copy()
+                cluster_assignments_temp[node_index] = cluster_to_test
+                cluster_feature_list.append(self.cluster_features(adjacency_matrix_current, cluster_assignments_temp))
             logits = self.model.forward(cluster_feature_list)
             logits_softmax = self.softmax(logits)
             cluster_assigned = np.random.choice(range(self.n_clusters), p=logits_softmax.detach().numpy())
-
+            # Negative values in flow
             flow_total += logits_softmax[cluster_assigned]
             cluster_assignments[node_index] = cluster_assigned
 
         return cluster_assignments, flow_total
 
     def cluster_features(self, adjacency_matrix_current, cluster_assignments):
+        # Optimize by only looking above diagonal
         cluster_features = torch.zeros((self.n_clusters, self.n_clusters))
         for cluster_number1 in range(self.n_clusters):
             for cluster_number2 in range(self.n_clusters):
