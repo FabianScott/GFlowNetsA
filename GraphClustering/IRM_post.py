@@ -5,14 +5,24 @@ def p_x_giv_z(A, C, a = 1, b = 1, log = True):
     """Calculate P(X|z): the probability of the graph given a particular clustering structure.
     # This is calculated by integrating out all the internal cluster connection parameters.
 
-    # Alphak is the concentration parameter of cluster (component) k. 
-    # nk are the number of nodes in cluster k. 
+    Parameters
+    ----------
+    A : Adjacency matrix (2D ndarray)
+    C : clustering index array (ndarray)
+    a and b: float
+        Parameters for the beta distribution prior for the cluster connectivities. 
+        a = b = 1 yields a uniform distribution.
+    log : Bool
+        Whether or not to return log of the probability
+
+    Return
+    ----------
+    Probability of data given clustering: float
     """
     # Product over all pairs of components.
     values, nk = np.unique(C, return_counts = True)
     # I just need to create m_kl and m_bar_kl matrices. Then I can vectorize the whole thing
 
-    # A_C = A[C,C] # A sorted according to the clustering.
     # create node-cluster adjacency matrix
     n_C = np.identity(C.max()+1, int)[C-1]
     m_kl = n_C.T @ A @ n_C
@@ -21,6 +31,7 @@ def p_x_giv_z(A, C, a = 1, b = 1, log = True):
     m_bar_kl = np.outer(nk,nk) - np.diag(nk*(nk+1)/2) - m_kl # The diagonal simplifies to the sum up to nk-1. 
     
     # Alternative to the matrix multiplication. This is a little faster.
+    # Sort A according to the clustering.
     # boundaries = np.diff(C, prepend=-1).nonzero()[0] # tells me at what index each cluster begins. 
     # out =  np.add.reduceat(np.add.reduceat(A,boundaries,1),boundaries,0) # Basically just the matrix-algebra above.
     
@@ -34,10 +45,12 @@ def p_z(A, C, alpha = 1, log = True):
 
     Parameters
     ----------
-    A : Adjacency matrix
-    C : clustering index array
+    A : Adjacency matrix (2D ndarray)
+    C : clustering index array (ndarray)
     alpha : float
-        Concentration.
+        Concentration of clusters.
+    log : Bool
+        Whether or not to return log of the probability
 
     Return
     ----------
@@ -45,7 +58,6 @@ def p_z(A, C, alpha = 1, log = True):
     """
     
 
-    # P is a partitioning of the graph as a boolean matrix of dimension (clusters, nodes). Short and fat. 
     # Alpha is the concentration parameter. In theory, this could be different for the different clusters.
     # A constant concentration corrosponds to the chinese restaurant process. 
     K = np.amax(C)
