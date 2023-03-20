@@ -58,7 +58,7 @@ a = 0.1
 b = 0.1
 max_iter = 20
 
-model = IRM(alpha, a, b, max_iter, verbose=True, use_best_iter=True, random_state = 42) 
+model = IRM(alpha, a, b, max_iter, verbose=True, use_best_iter=True)  #, random_state = 42
 
 model.fit(A_random)
 
