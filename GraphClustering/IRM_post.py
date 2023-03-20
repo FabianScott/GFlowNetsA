@@ -63,7 +63,7 @@ def p_z(A, C, alpha = 1, log = True):
     K = np.amax(C)
     N = len(A) 
     values, nk = np.unique(C, return_counts = True) # nk is an array of counts, so the number of elements in each cluster.
-    K_bar = K - len(values) # number of empty clusters. 
+    K_bar = len(values) - K # number of empty clusters. 
 
     
     log_labellings = gammaln(K+1) - gammaln(K-K_bar+1)
@@ -130,8 +130,9 @@ def ClusterGraph(l, k, p, q):
 
 if __name__ == "__main__":
     # from Basic_IRM import ClusterGraph
-    l = 10
-    k = 9
+    import matplotlib.pyplot as plt
+    l = 5
+    k = 10
 
     A_adj = ClusterGraph(l, k, 0.9, 0.01)
 
@@ -141,8 +142,8 @@ if __name__ == "__main__":
 
     K = 10
     # Create random clusterings
-    iterations = 10
-    probs_C_log = np.zeros(10)
+    iterations = 100000
+    probs_C_log = np.zeros(iterations)
     random_state = 42
     for i in range(iterations):
         np.random.seed(random_state)
@@ -150,10 +151,20 @@ if __name__ == "__main__":
         for n in range(l*k):
             c = np.random.randint(0, high=K)
             C[n] = c # Assign clusters at random.
-        probs_C_log[i] = p_x_giv_z(A_random, C, a = 1, b = 1)+p_z(A_random, C, alpha = 1)
+        probs_C_log[i] = p_x_giv_z(A_random, C, a = 1/2, b = 1/2)+p_z(A_random, C, alpha = 1)
         if i==0: best_clustering, best_P = C, probs_C_log[i]
         if i > 0 and probs_C_log[i] > best_P: best_clustering, best_P = C, probs_C_log[i]
 
+    c_idxs = np.argsort(best_clustering)
     print(best_clustering)
-    # print(A_adj)
+    A_C = A_adj[c_idxs][:, c_idxs]
+    plt.figure()
+    plt.imshow(A_adj, cmap='gray')
+    plt.show()
+
+    plt.figure()
+    plt.imshow(A_C, cmap='gray')
+    plt.show()
+
+    # print(A_C)
 
