@@ -15,7 +15,9 @@ class GraphNet:
                  # decay_rate=0.8,
                  n_samples=1000,
                  batch_size=10,
-                 n_clusters=4
+                 n_clusters=4,
+                 n_nodes=100,
+                 using_cuda=False
                  ):
         self.env = env
         self.n_layers = n_layers
@@ -26,13 +28,20 @@ class GraphNet:
         self.n_samples = n_samples
         self.n_clusters = n_clusters
         self.batch_size = batch_size
-        self.model = self.create_model()
+        self.model_forward = MLP(n_hidden=n_hidden,
+                                 n_clusters=n_clusters,
+                                 n_layers=n_layers,
+                                 output_size=1)
+        self.model_backward = MLP(n_hidden=n_hidden,
+                                  n_clusters=n_clusters,
+                                  n_layers=n_layers,
+                                  output_size=n_nodes)
         self.mse_loss = nn.MSELoss()
-        self.softmax = torch.nn.Softmax()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.softmax = torch.nn.Softmax(dim=0)
+        self.optimizer = torch.optim.Adam(self.model_forward.parameters(), lr=self.lr)
+        self.using_cuda = using_cuda
 
     def create_model(self):
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         # Define the layers of the neural network
         # layers = []
         # Assuming the features extracted for each cluster has size 1
@@ -42,6 +51,8 @@ class GraphNet:
         return MLP(n_hidden=self.n_hidden, n_clusters=self.n_clusters, n_layers=self.n_layers, output_size=1)
 
     def train(self, X, Y, epochs=100, batch_size=None):
+        # X: an iterable/index-able of final cluster assignments
+        # Y: an iterable/index-able of IRM values for each X
         if batch_size is None:
             batch_size = self.batch_size
 
@@ -53,13 +64,25 @@ class GraphNet:
                 indices = permutation[i:i + batch_size]
                 batch_x, batch_y = X[indices], Y[indices]
 
-                outputs = self.model.forward(batch_x)
+                outputs = self.model_forward.forward(batch_x)
                 loss = self.mse_loss(outputs, batch_y)
 
                 loss.backward()
                 self.optimizer.step()
 
-    def assign_clusters(self, adjacency_matrix_full):
+    def assign_clusters_torch(self, adjacency_matrix_full):
+        cluster_assignments = torch.zeros(adjacency_matrix_full.shape[0])
+        cluster_order = np.random.choice(range(adjacency_matrix_full.shape[0]), adjacency_matrix_full.shape[0], replace=False)
+        adjacency_matrix_current = np.zeros(adjacency_matrix_full.shape)
+        flow_total = 0
+        l = self.n_clusters
+        return
+
+    def assign_clusters(self, adjacency_matrix_full, alpha=1):
+        # alpha is in [0,1] and weights the contribution of the NN vs random
+        if self.using_cuda:
+            return self.assign_clusters_torch(adjacency_matrix_full=adjacency_matrix_full)
+        # 0 means no cluster, so clusters are 1-indexed
         cluster_assignments = np.zeros(adjacency_matrix_full.shape[0])
         cluster_order = np.random.choice(range(adjacency_matrix_full.shape[0]), adjacency_matrix_full.shape[0], replace=False)
         adjacency_matrix_current = np.zeros(adjacency_matrix_full.shape)
@@ -67,6 +90,7 @@ class GraphNet:
 
         for node_index in cluster_order:
             # put the node into the current adjacency matrix, add masking for nodes in network
+            # Should be unnecessary, as we only sum in the relevant part of the matrix
             adjacency_matrix_current[node_index] = adjacency_matrix_full[node_index]
             adjacency_matrix_current[:, node_index] = adjacency_matrix_full[:, node_index]
 
@@ -75,12 +99,15 @@ class GraphNet:
                 cluster_assignments_temp = cluster_assignments.copy()
                 cluster_assignments_temp[node_index] = cluster_to_test
                 cluster_feature_list.append(self.cluster_features(adjacency_matrix_current, cluster_assignments_temp))
-            logits = self.model.forward(cluster_feature_list)
+            logits = self.model_forward.forward(cluster_feature_list)
             logits_softmax = self.softmax(logits)
-            cluster_assigned = np.random.choice(range(self.n_clusters), p=logits_softmax.detach().numpy())
+            # Numpy complains about it not summing to 1 if no outer softmax, probably a numerical instability issue
+            logits_weighted = self.softmax(alpha * logits_softmax + (1 - alpha) * self.softmax(torch.tensor(np.random.random(self.n_clusters))))
+
+            cluster_assigned = np.random.choice(range(self.n_clusters), p=logits_weighted.detach().numpy())
             # Negative values in flow
-            flow_total += logits_softmax[cluster_assigned]
-            cluster_assignments[node_index] = cluster_assigned
+            cluster_assignments[node_index] = cluster_assigned + 1
+        flow_total += logits_softmax[cluster_assigned]
 
         return cluster_assignments, flow_total
 
@@ -92,7 +119,7 @@ class GraphNet:
                 mask1 = cluster_assignments == cluster_number1 + 1
                 mask2 = cluster_assignments == cluster_number2 + 1
                 rows1 = adjacency_matrix_current[mask1]
-                rows2 = rows1 @ mask2
+                rows2 = np.logical_and(rows1, mask2)
                 cluster_features[cluster_number1, cluster_number2] = np.sum(rows2)
 
         return torch.flatten(cluster_features)
@@ -106,12 +133,13 @@ class MLP(nn.Module):
         # Forward and backward layers
         self.layers = nn.ModuleList()
         prev_size = input_size
-        for k in range(n_layers):
+        for k in range(n_layers-1):
             self.layers.append(nn.Linear(prev_size, n_hidden))
             # layers.append(nn.Linear(prev_size, self.n_hidden))
             self.layers.append(nn.ReLU())
             prev_size = n_hidden
-        self.layers.append(nn.Linear(prev_size, 1))
+        self.layers.append(nn.Linear(prev_size, output_size))
+        self.layers.append(nn.Softplus())
 
     # Define the forward function of the neural network
     def forward(self, X):
@@ -127,10 +155,14 @@ class MLP(nn.Module):
 if __name__ == '__main__':
     import torch
 
-    net = GraphNet()
+    using_cuda = False
+    if torch.cuda.is_available() and using_cuda:
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+
+    net = GraphNet(using_cuda=using_cuda)
     a = np.ones((5,5))
     a[0,1], a[1,0] = 0, 0
     a[0,3], a[3,0] = 0, 0
     a[0,4], a[4,0] = 0, 0
 
-    net.assign_clusters(a)
+    print(net.assign_clusters(a))
