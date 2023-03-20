@@ -28,14 +28,14 @@ class GraphNet:
         self.n_samples = n_samples
         self.n_clusters = n_clusters
         self.batch_size = batch_size
-        self.model_forward = MLP(n_hidden=n_hidden,
+        self.model_forward = MLP(n_nodes=n_nodes,
+                                 n_hidden=n_hidden,
                                  n_clusters=n_clusters,
-                                 n_layers=n_layers,
-                                 output_size=1)
-        self.model_backward = MLP(n_hidden=n_hidden,
+                                 n_layers=n_layers)
+        self.model_backward = MLP(n_nodes=n_nodes,
+                                  n_hidden=n_hidden,
                                   n_clusters=n_clusters,
-                                  n_layers=n_layers,
-                                  output_size=n_nodes)
+                                  n_layers=n_layers)
         self.mse_loss = nn.MSELoss()
         self.softmax = torch.nn.Softmax(dim=0)
         self.optimizer = torch.optim.Adam(self.model_forward.parameters(), lr=self.lr)
@@ -126,9 +126,9 @@ class GraphNet:
 
 
 class MLP(nn.Module):
-    def __init__(self, n_hidden, n_clusters, output_size=1, n_layers=3):
+    def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3):
         super().__init__()
-        input_size = int(n_clusters**2)
+        input_size = int(n_nodes**2)
         self.n_clusters = n_clusters
         # Forward and backward layers
         self.layers = nn.ModuleList()
@@ -142,7 +142,7 @@ class MLP(nn.Module):
         self.layers.append(nn.Softplus())
 
     # Define the forward function of the neural network
-    def forward(self, X):
+    def forward_(self, X):
         # Given an iterable of adjacency matrices as tensors for each possible action to take
         flows = torch.Tensor(np.zeros(self.n_clusters))
         for i, x in enumerate(X):
@@ -150,6 +150,12 @@ class MLP(nn.Module):
                 x = layer(x)
             flows[i] = x[0]
         return flows
+
+    def forward(self, X):
+        x = X
+        for layer in self.layers:
+            x = layer(x)
+        return x
 
 
 if __name__ == '__main__':
