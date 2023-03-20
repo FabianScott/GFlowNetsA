@@ -18,10 +18,10 @@ def ClusterGraph(l, k, p, q):
             prob = np.random.rand(2)
 
             if i // k == j // k and prob[0] < p:
-                adjacency[i, j] = 1
+                adjacency[(i,j), (j,i)] = 1
 
             elif prob[1] < q:
-                adjacency[i, j] = 1
+                adjacency[(i,j), (j,i)] = 1
 
     return adjacency
 
