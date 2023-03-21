@@ -76,7 +76,7 @@ class GraphNet:
         adjacency_matrix_current = np.zeros(adjacency_matrix_full.shape)
         flow_total = 0
         l = self.n_clusters
-        return
+        return None
 
     def assign_clusters(self, adjacency_matrix_full, alpha=1):
         # alpha is in [0,1] and weights the contribution of the NN vs random
