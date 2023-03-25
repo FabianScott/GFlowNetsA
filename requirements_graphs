@@ -3,3 +3,4 @@ scipy
 pytorch
 matplotlib
 jupyter
+tqdm

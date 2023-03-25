@@ -1,11 +1,14 @@
 import numpy as np
 import torch
+from tqdm import tqdm
 import torch.nn as nn
 import itertools
 
 
 class GraphNet:
     def __init__(self,
+                 n_nodes,
+                 termination_chance=None,
                  env=None,
                  n_layers=2,
                  n_hidden=32,
@@ -17,7 +20,6 @@ class GraphNet:
                  n_samples=1000,
                  batch_size=10,
                  n_clusters=4,
-                 n_nodes=100,
                  using_cuda=False,
                  using_backward_model=False
                  ):
@@ -30,7 +32,9 @@ class GraphNet:
         self.n_samples = n_samples
         self.n_clusters = n_clusters
         self.batch_size = batch_size
-        self.model_forward = MLP(output_size=int(n_nodes * 2),
+        self.n_nodes = n_nodes
+        self.size = (n_nodes, n_nodes)
+        self.model_forward = MLP(output_size=1,
                                  n_nodes=n_nodes,
                                  n_hidden=n_hidden,
                                  n_clusters=n_clusters,
@@ -40,7 +44,7 @@ class GraphNet:
                                   n_nodes=n_nodes,
                                   n_hidden=n_hidden,
                                   n_clusters=n_clusters,
-                                  n_layers=n_layers) if using_backward_model\
+                                  n_layers=n_layers) if using_backward_model \
             else SimpleBackwardModel()
         self.mse_loss = nn.MSELoss()
         self.softmax = torch.nn.Softmax(dim=0)
@@ -48,6 +52,8 @@ class GraphNet:
         self.optimizer = torch.optim.Adam(itertools.chain(self.model_forward.parameters(), (self.z0,)), lr=self.lr)
         self.using_cuda = using_cuda
         self.using_backward_model = using_backward_model
+        self.state_length = 2 * self.n_nodes ** 2 + self.n_nodes
+        self.termination_chance = 1/n_nodes if termination_chance is None else termination_chance
 
     def create_model(self):
         # Define the layers of the neural network
@@ -68,133 +74,221 @@ class GraphNet:
             raise NotImplementedError
 
         permutation = torch.randperm(X.size()[0])
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs)):
             for i in range(0, X.size()[0], batch_size):
                 self.optimizer.zero_grad()
 
                 indices = permutation[i:i + batch_size]
-                batch_x, batch_y = X[indices], Y[indices]
+                batch_x = X[indices]
 
-                outputs = self.model_forward.forward(batch_x)
-                loss = self.mse_loss(outputs, batch_y)
+                outputs = []
+                targets = []
+                for x in batch_x:
+                    _, forward, backward = self.calculate_flows_from_terminal_state(x)
+                    outputs.append(forward)
+                    targets.append(backward)
+
+                loss = self.mse_loss(outputs, targets)
 
                 loss.backward()
                 self.optimizer.step()
 
     def trajectory_balance_loss(self, final_states):
         # final_states is a list of vectors representing states with at minimum one node missing
+        losses = []
+
         for state in final_states:
             # The probabilities are computed while creating the trajectories
-            trajectory, backward_probs, forward_probs = self.sample_trajectory_backwards(state)
+            trajectory, probs_log_sum_backward, probs_log_sum_forward = self.sample_trajectory_backwards(state)
+            loss = self.mse_loss(probs_log_sum_forward, probs_log_sum_backward)
+            losses.append(loss)
 
+        return losses
+
+    def calculate_flows_from_terminal_state(self, terminal_state):
+        # The terminal_state does encode information about what node was most recently clustered
+        current_adjacency, current_clustering, last_node_placed = self.get_matrices_from_state(terminal_state) # ignores the one-hot part
+        current_clustering_list, number_of_clusters = self.get_clustering_list(current_clustering)
+        prob_log_sum_forward = torch.zeros(1)
+        # Need IRM to add here, leave out for now
+        prob_log_sum_backward = torch.zeros(1)
+        # Will track the order in which nodes are removed from the graph
+        trajectory = torch.zeros(self.n_nodes)
+        node_no = 1
+
+        while torch.sum(current_clustering_list).item():
+            probs_backward = self.model_backward.forward(
+                current_clustering)  # should take entire state when real model is used
+            index_chosen = torch.multinomial(probs_backward, 1)
+            prob_log_sum_backward += torch.log(probs_backward[index_chosen])
+            # Remove the node from the clustering
+            current_clustering[index_chosen] = 0
+            current_clustering[:, index_chosen] = 0
+            # Get the forward flow
+            last_node_placed = torch.zeros(self.n_nodes)
+            last_node_placed[index_chosen] = 1
+            current_state = torch.concat((current_adjacency.flatten(), current_clustering.flatten(), last_node_placed))
+            forward_probs = self.forward_flow(current_state)
+            # Cluster labels are 1-indexed
+            cluster_origin_index = current_clustering_list[index_chosen] - 1
+            # Now calculate the forward flow into the state we passed to the backward model:
+            current_clustering_list, _ = self.get_clustering_list(current_clustering)
+            node_index_forward = torch.sum(current_clustering_list[:index_chosen] == 0)
+            prob_log_sum_forward += torch.log(forward_probs[(int(node_index_forward), int(cluster_origin_index[0]))])
+            trajectory[index_chosen] = node_no
+            node_no += 1
+
+        return trajectory, prob_log_sum_forward, prob_log_sum_backward + self.z0
 
     def sample_trajectory_backwards(self, state):
         # state is the (k ** 2) * 2 long vector of both matrices
         # reshape stuff to make it easier to work with
 
-        current_adjacency, current_clustering, size = self.get_matrices_from_state(state, return_size=True)
-        zeros = torch.zeros(size[0])
-        zeros_ = torch.zeros((size[0], 1))
+        current_adjacency, current_clustering = self.get_matrices_from_state(state)
+        # zeros = torch.zeros(self.size[0])
+        # zeros_ = torch.zeros((self.size[0], 1))
 
-        trajectory, backward_probs_mat, forward_probs_mat = [torch.zeros(size)] * 3
-        prob_sum_forward, prob_sum_backward = 0, 0
+        trajectory, backward_probs_mat, forward_probs_mat = torch.zeros(self.size), torch.zeros(self.size), torch.zeros(
+            (self.size[0], self.size[0] ** 2))
+        prob_sum_forward, prob_sum_backward = torch.zeros(1), torch.zeros(1)
         probs_backward = self.model_backward.forward(current_clustering)
 
-        for i in range(size[0]):
+        for i in range(self.size[0]):
             # put the backward probabilities in at the start of the loop to avoid the last one
             backward_probs_mat[i] = probs_backward
 
             index_chosen = torch.multinomial(probs_backward, 1)
             # remove the chosen node from the clustering
-            current_clustering[index_chosen] = zeros
-            current_clustering[:, index_chosen] = zeros_
-            
-            prob_sum_backward += probs_backward[index_chosen]
+            current_clustering[index_chosen] = 0
+            current_clustering[:, index_chosen] = 0
+
+            prob_sum_backward += torch.log(torch.tensor(probs_backward[index_chosen]))
             probs_backward = self.model_backward.forward(current_clustering)
 
             # put the forward probabilities in at the end to skip the first iteration but include the last
             current_state = self.get_state_from_matrices(current_adjacency, current_clustering)
-            probs_forward = self.model_forward.forward(current_state)
-            forward_probs_mat[i] = probs_forward
-            prob_sum_forward += probs_forward[index_chosen]
+            probs_forward = self.model_forward.forward(current_state).flatten()
+
+            # forward_probs_mat[i] = probs_forward
+            prob_sum_forward += torch.log(torch.tensor(probs_forward[index_chosen]))
             trajectory[i][index_chosen] = 1
         # trajectory[i + 1][]
 
-        return trajectory, backward_probs_mat, forward_probs_mat
+        return trajectory, prob_sum_backward, prob_sum_forward
 
-    def get_matrices_from_state(self, state, return_size=False):
-        l = torch.tensor(state.size()[0] / 2)
-        size = (int(torch.sqrt(l)), int(torch.sqrt(l)))
-        l = int(l)
-        current_adjacency, current_clustering = torch.reshape(state[:l], size), torch.reshape(state[l:], size)
-        if return_size:
-            return current_adjacency, current_clustering, size
-        return current_adjacency, current_clustering
+    def forward_flow(self, state):
+        # return the forward flow for all possible actions (choosing node, assigning cluster)
+        # using the idea that the NN rates each possible future state. Variable output size!!
+        current_adjacency, current_clustering, last_node_placed = self.get_matrices_from_state(state)
+        # number of clusters starts at 1
+        clustering_list, number_of_clusters = self.get_clustering_list(current_clustering)
+        nodes_to_place = torch.argwhere(torch.sum(current_clustering, dim=0) == 0)  # it's symmetrical
+
+        output = torch.zeros((nodes_to_place.size()[0], number_of_clusters))
+        possible_node = 0
+        for node_index in nodes_to_place:
+            # node index is a tensor
+            for possible_cluster in range(1, number_of_clusters + 1):
+                temp_clustering_list = torch.clone(clustering_list)
+                temp_clustering_list[node_index] = possible_cluster
+                temp_clustering = self.place_clustering_from_list(temp_clustering_list, number_of_clusters)
+                temp_state = torch.concat(
+                    (current_adjacency.flatten(), temp_clustering.flatten(), last_node_placed))
+
+                output[possible_node, possible_cluster - 1] = self.model_forward.forward(temp_state)
+            possible_node += 1
+        return output
+
+    def sample_forward(self, current_adjacency, epochs=None):
+        if epochs is None:
+            epochs = self.epochs
+
+        final_states = torch.zeros((epochs, self.state_length))
+
+        for epoch in tqdm(range(epochs)):
+            # Initialize the empty clustering and one-hot vector
+            current_clustering = torch.zeros(self.size)
+            last_node_placed = torch.zeros(self.n_nodes)
+            # Here to ensure an empty state if
+            # Each iteration has self.termination_chance of being the last, and we ensure no empty states
+            while torch.rand(1) > self.termination_chance or not last_node_placed.sum():
+                # Create the state vector and pass it to the NN
+                current_state = torch.concat(
+                    (current_adjacency.flatten(), current_clustering.flatten(), last_node_placed))
+                last_node_placed = torch.zeros(self.n_nodes)
+                forward_flows = self.forward_flow(current_state)
+                forward_probs = self.softmax_matrix(forward_flows).flatten()
+                # Sample from the output and retrieve the indices of the chosen node and clustering
+                index_chosen = torch.multinomial(forward_probs, 1)
+                node_chosen = index_chosen // self.n_nodes
+                cluster_index_chosen = index_chosen - node_chosen
+
+                # Update the cluster
+                current_clustering_list, num_clusters = self.get_clustering_list(current_clustering)
+                # Labels are 1-indexed, indices are 0 indexed
+                current_clustering_list[node_chosen] = cluster_index_chosen + 1
+                current_clustering = self.place_clustering_from_list(current_clustering_list, num_clusters)
+                last_node_placed[node_chosen] = 1
+
+            final_states[epoch] = current_state
+
+        return final_states
+
+#%% Helpers:
+    def place_clustering_from_list(self, clustering_list, number_of_clusters):
+        # Returns the clustering matrix associated with the clustering list, takes the number of
+        # cluster as an argument because it has been calculated prior to the use of this function
+        current_clustering = torch.zeros(self.size)
+        for cluster_no in range(1, number_of_clusters + 1):
+            # Find all indices belonging to the current cluster we're looking at
+            cluster_positions = torch.argwhere(clustering_list == cluster_no).flatten()
+            # Find the unique combination of these indices, including the diagonal elements (probably not the most efficient)
+            indices = torch.unique(torch.combinations(torch.concat((cluster_positions, cluster_positions)), r=2), dim=0)
+            for ind in indices:
+                current_clustering[(ind[0], ind[1])] = 1
+                # current_clustering[(ind[1], ind[0])] = 1 # Left in case needed when changing for efficiency
+        return current_clustering
+
+    def get_clustering_list(self, current_clustering):
+        # return a 1-dimensional tensor of what cluster each node is in
+
+        # zeros = torch.zeros(self.size[0])
+        # zeros_ = torch.zeros((self.size[0], 1))
+
+        current_clustering_copy = torch.clone(current_clustering)
+        output = torch.zeros(current_clustering_copy.size()[0])
+        cluster_no = 1
+        node_no = 0
+        while torch.sum(current_clustering_copy):
+            row = current_clustering_copy[node_no]
+            if torch.sum(row):
+                indices = torch.argwhere(row)
+                output[indices] = cluster_no
+                current_clustering_copy[indices] = 0
+                current_clustering_copy[:, indices] = 0
+                cluster_no += 1
+            node_no += 1
+
+        return output, cluster_no
+
+    def get_matrices_from_state(self, state):
+        # returns the adjacency matrix, clustering matrix and one-hot vector of the last node placed into the graph
+        l = self.n_nodes ** 2
+        size = self.size
+        current_adjacency, current_clustering = torch.reshape(state[:l], size), torch.reshape(state[l:2 * l], size)
+        return current_adjacency, current_clustering, state[2*l:]
 
     def get_state_from_matrices(self, current_adjacency, current_clustering):
         return torch.concat((current_adjacency.flatten(), current_clustering.flatten()))
 
-    def assign_clusters_torch(self, adjacency_matrix_full):
-        cluster_assignments = torch.zeros(adjacency_matrix_full.shape[0])
-        cluster_order = torch.randperm(adjacency_matrix_full.shape[0])
-        adjacency_matrix_current = np.zeros(adjacency_matrix_full.shape)
-        flow_total = 0
-        l = self.n_clusters
-        return None
-
-    def assign_clusters(self, adjacency_matrix_full, alpha=1):
-        # alpha is in [0,1] and weights the contribution of the NN vs random
-        if self.using_cuda:
-            return self.assign_clusters_torch(adjacency_matrix_full=adjacency_matrix_full)
-        # 0 means no cluster, so clusters are 1-indexed
-        cluster_assignments = np.zeros(adjacency_matrix_full.shape[0])
-        cluster_order = np.random.choice(range(adjacency_matrix_full.shape[0]), adjacency_matrix_full.shape[0],
-                                         replace=False)
-        adjacency_matrix_current = np.zeros(adjacency_matrix_full.shape)
-        flow_total = 0
-
-        for node_index in cluster_order:
-            # put the node into the current adjacency matrix, add masking for nodes in network
-            # Should be unnecessary, as we only sum in the relevant part of the matrix
-            adjacency_matrix_current[node_index] = adjacency_matrix_full[node_index]
-            adjacency_matrix_current[:, node_index] = adjacency_matrix_full[:, node_index]
-
-            cluster_feature_list = []
-            for cluster_to_test in range(self.n_clusters):
-                cluster_assignments_temp = cluster_assignments.copy()
-                cluster_assignments_temp[node_index] = cluster_to_test
-                cluster_feature_list.append(self.cluster_features(adjacency_matrix_current, cluster_assignments_temp))
-            logits = self.model_forward.forward(torch.tensor(cluster_feature_list))
-            logits_softmax = self.softmax(logits)
-            # Numpy complains about it not summing to 1 if no outer softmax, probably a numerical instability issue
-            logits_weighted = self.softmax(
-                alpha * logits_softmax + (1 - alpha) * self.softmax(torch.tensor(np.random.random(self.n_clusters))))
-
-            cluster_assigned = np.random.choice(range(self.n_clusters), p=logits_weighted.detach().numpy())
-            # Negative values in flow
-            cluster_assignments[node_index] = cluster_assigned + 1
-        flow_total += logits_softmax[cluster_assigned]
-
-        return cluster_assignments, flow_total
-
-    def cluster_features(self, adjacency_matrix_current, cluster_assignments):
-        # Optimize by only looking above diagonal
-        cluster_features = torch.zeros((self.n_clusters, self.n_clusters))
-        for cluster_number1 in range(self.n_clusters):
-            for cluster_number2 in range(self.n_clusters):
-                mask1 = cluster_assignments == cluster_number1 + 1
-                mask2 = cluster_assignments == cluster_number2 + 1
-                rows1 = adjacency_matrix_current[mask1]
-                rows2 = np.logical_and(rows1, mask2)
-                cluster_features[cluster_number1, cluster_number2] = np.sum(rows2)
-
-        return torch.flatten(cluster_features)
-
+    def softmax_matrix(self, inp):
+        return torch.exp(inp)/torch.sum(torch.exp(inp))
 
 class MLP(nn.Module):
     def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3):
         super().__init__()
-        input_size = int(n_nodes ** 2)
+        # takes adj_mat, clustering_mat, one-hot node_placed
+        input_size = int(2 * n_nodes ** 2 + n_nodes)
         self.n_clusters = n_clusters
         # Forward and backward layers
         self.layers = nn.ModuleList()
@@ -205,6 +299,7 @@ class MLP(nn.Module):
             self.layers.append(nn.ReLU())
             prev_size = n_hidden
         self.layers.append(nn.Linear(prev_size, output_size))
+        # To ensure positive output
         self.layers.append(nn.Softplus())
 
     # Define the forward function of the neural network
@@ -220,12 +315,7 @@ class SimpleBackwardModel:
         pass
 
     def forward(self, current_clustering):
-        # X is a vector of the two matrices, so check what nodes are in (k) and return a vector full
-        # of 1/k. Seems to work
-        # l = torch.tensor(X.size()[0] / 2)
-        # size = (int(torch.sqrt(l)), int(torch.sqrt(l)))
-        # l = int(l)
-        # current_adjacency, current_clustering = torch.reshape(X[:l], size), torch.reshape(X[l:], size)
+        # state is adj_mat and clustering_mat
         current_nodes = torch.sum(current_clustering, dim=1) > 0
         return current_nodes / torch.sum(current_nodes)
 
@@ -236,14 +326,21 @@ if __name__ == '__main__':
     using_cuda = False
     if torch.cuda.is_available() and using_cuda:
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-
-    net = GraphNet(using_cuda=using_cuda)
     a = torch.ones((5, 5))
     a[0, 1], a[1, 0] = 0, 0
     a[0, 3], a[3, 0] = 0, 0
     a[0, 4], a[4, 0] = 0, 0
 
+    net = GraphNet(n_nodes=a.size()[0], using_cuda=using_cuda)
+
     # print(net.assign_clusters(a))
-    b = torch.concat((torch.tensor(a).flatten(), torch.tensor(a).flatten()))
     bas = SimpleBackwardModel()
-    print(net.sample_trajectory_backwards(b))
+    #
+    cluster_list = torch.tensor([1, 1, 2, 3, 0])
+    clustering_mat = net.place_clustering_from_list(cluster_list, 4)
+    one_hot_node = torch.zeros(5)
+    one_hot_node[3] = 1
+    b = torch.concat((torch.tensor(a).flatten(), torch.tensor(clustering_mat).flatten(), one_hot_node))
+    print(net.forward_flow(b))
+    print(net.calculate_flows_from_terminal_state(b))
+    net.sample_forward(a, epochs=10)
