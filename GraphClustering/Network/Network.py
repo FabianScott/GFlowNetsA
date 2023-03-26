@@ -64,14 +64,14 @@ class GraphNet:
         # net = nn.Module()
         return MLP(n_hidden=self.n_hidden, n_clusters=self.n_clusters, n_layers=self.n_layers, output_size=1)
 
-    def train(self, X, Y, complete_graphs=None, epochs=100, batch_size=None):
+    def train(self, X, Y, epochs=100, batch_size=None):
         # X: an iterable/index-able of final cluster assignments
         # Y: an iterable/index-able of IRM values for each X
         if batch_size is None:
             batch_size = self.batch_size
-        if complete_graphs is None:
-            print(f'Missing iterable indicating which graphs can be evaluated using IRM!')
-            raise NotImplementedError
+        # if complete_graphs is None:
+        #     print(f'Missing iterable indicating which graphs can be evaluated using IRM!')
+        #     raise NotImplementedError
 
         permutation = torch.randperm(X.size()[0])
         for epoch in tqdm(range(epochs)):
@@ -81,12 +81,13 @@ class GraphNet:
                 indices = permutation[i:i + batch_size]
                 batch_x = X[indices]
 
-                outputs = []
-                targets = []
-                for x in batch_x:
+                outputs = torch.zeros((batch_size, 1))
+                targets = torch.zeros((batch_size, 1))
+                for i, x in enumerate(batch_x):
+
                     _, forward, backward = self.calculate_flows_from_terminal_state(x)
-                    outputs.append(forward)
-                    targets.append(backward)
+                    outputs[i] = forward
+                    targets[i] = backward
 
                 loss = self.mse_loss(outputs, targets)
 
@@ -140,41 +141,41 @@ class GraphNet:
 
         return trajectory, prob_log_sum_forward, prob_log_sum_backward + self.z0
 
-    def sample_trajectory_backwards(self, state):
-        # state is the (k ** 2) * 2 long vector of both matrices
-        # reshape stuff to make it easier to work with
-
-        current_adjacency, current_clustering, _ = self.get_matrices_from_state(state)
-        # zeros = torch.zeros(self.size[0])
-        # zeros_ = torch.zeros((self.size[0], 1))
-
-        trajectory, backward_probs_mat, forward_probs_mat = torch.zeros(self.size), torch.zeros(self.size), torch.zeros(
-            (self.size[0], self.size[0] ** 2))
-        prob_sum_forward, prob_sum_backward = torch.zeros(1), torch.zeros(1)
-        probs_backward = self.model_backward.forward(current_clustering)
-
-        for i in range(self.size[0]):
-            # put the backward probabilities in at the start of the loop to avoid the last one
-            backward_probs_mat[i] = probs_backward
-
-            index_chosen = torch.multinomial(probs_backward, 1)
-            # remove the chosen node from the clustering
-            current_clustering[index_chosen] = 0
-            current_clustering[:, index_chosen] = 0
-
-            prob_sum_backward += torch.log(torch.tensor(probs_backward[index_chosen]))
-            probs_backward = self.model_backward.forward(current_clustering)
-
-            # put the forward probabilities in at the end to skip the first iteration but include the last
-            current_state = self.get_state_from_matrices(current_adjacency, current_clustering)
-            probs_forward = self.model_forward.forward(current_state).flatten()
-
-            # forward_probs_mat[i] = probs_forward
-            prob_sum_forward += torch.log(torch.tensor(probs_forward[index_chosen]))
-            trajectory[i][index_chosen] = 1
-        # trajectory[i + 1][]
-
-        return trajectory, prob_sum_backward, prob_sum_forward
+    # def sample_trajectory_backwards(self, state):
+    #     # state is the (k ** 2) * 2 long vector of both matrices
+    #     # reshape stuff to make it easier to work with
+    #
+    #     current_adjacency, current_clustering, _ = self.get_matrices_from_state(state)
+    #     # zeros = torch.zeros(self.size[0])
+    #     # zeros_ = torch.zeros((self.size[0], 1))
+    #
+    #     trajectory, backward_probs_mat, forward_probs_mat = torch.zeros(self.size), torch.zeros(self.size), torch.zeros(
+    #         (self.size[0], self.size[0] ** 2))
+    #     prob_sum_forward, prob_sum_backward = torch.zeros(1), torch.zeros(1)
+    #     probs_backward = self.model_backward.forward(current_clustering)
+    #
+    #     for i in range(self.size[0]):
+    #         # put the backward probabilities in at the start of the loop to avoid the last one
+    #         backward_probs_mat[i] = probs_backward
+    #
+    #         index_chosen = torch.multinomial(probs_backward, 1)
+    #         # remove the chosen node from the clustering
+    #         current_clustering[index_chosen] = 0
+    #         current_clustering[:, index_chosen] = 0
+    #
+    #         prob_sum_backward += torch.log(torch.tensor(probs_backward[index_chosen]))
+    #         probs_backward = self.model_backward.forward(current_clustering)
+    #
+    #         # put the forward probabilities in at the end to skip the first iteration but include the last
+    #         current_state = self.get_state_from_matrices(current_adjacency, current_clustering)
+    #         probs_forward = self.model_forward.forward(current_state).flatten()
+    #
+    #         # forward_probs_mat[i] = probs_forward
+    #         prob_sum_forward += torch.log(torch.tensor(probs_forward[index_chosen]))
+    #         trajectory[i][index_chosen] = 1
+    #     # trajectory[i + 1][]
+    #
+    #     return trajectory, prob_sum_backward, prob_sum_forward
 
     def forward_flow(self, state):
         # return the forward flow for all possible actions (choosing node, assigning cluster)
@@ -200,7 +201,7 @@ class GraphNet:
         return output
 
     def sample_forward(self, current_adjacency, epochs=None):
-        # Not Working Yet!!
+
         if epochs is None:
             epochs = self.epochs
 
@@ -349,4 +350,5 @@ if __name__ == '__main__':
     print(net.calculate_flows_from_terminal_state(b))
     final_states = net.sample_forward(a, epochs=10)
     for state in final_states:
-        print(net.get_matrices_from_state(state)[1 ])
+        print(net.get_matrices_from_state(state)[1])
+    net.train(final_states, None)
