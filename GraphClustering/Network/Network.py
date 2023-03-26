@@ -64,7 +64,7 @@ class GraphNet:
         # net = nn.Module()
         return MLP(n_hidden=self.n_hidden, n_clusters=self.n_clusters, n_layers=self.n_layers, output_size=1)
 
-    def train(self, X, Y, epochs=100, batch_size=None):
+    def train(self, X, Y=None, epochs=100, batch_size=None):
         # X: an iterable/index-able of final cluster assignments
         # Y: an iterable/index-able of IRM values for each X
         if batch_size is None:
@@ -87,6 +87,9 @@ class GraphNet:
 
                     _, forward, backward = self.calculate_flows_from_terminal_state(x)
                     outputs[i] = forward
+                    if self.is_terminal(x):
+                        # Should calculate IRM value of the state:
+                        backward = backward
                     targets[i] = backward
 
                 loss = self.mse_loss(outputs, targets)
@@ -289,6 +292,10 @@ class GraphNet:
     def softmax_matrix(self, inp):
         return torch.exp(inp)/torch.sum(torch.exp(inp))
 
+    def is_terminal(self, state):
+        # Check the diagonal of the clustering matrix using indexing and if the sum == n_nodes it is terminal
+        return not state[::self.nodes][self.n_nodes ** 2:2 * (self.n_nodes ** 2)].sum() % self.n_nodes
+
 class MLP(nn.Module):
     def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3):
         super().__init__()
@@ -351,4 +358,4 @@ if __name__ == '__main__':
     final_states = net.sample_forward(a, epochs=10)
     for state in final_states:
         print(net.get_matrices_from_state(state)[1])
-    net.train(final_states, None)
+    net.train(final_states)
