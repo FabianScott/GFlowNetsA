@@ -8,7 +8,7 @@ def p_x_giv_z(A, C, a = 1, b = 1, log = True):
     Parameters
     ----------
     A : Adjacency matrix (2D ndarray)
-    C : clustering index array (ndarray)
+    C : clustering index array (1D ndarray) (n long with the cluster c of each node ordered by the Adjacency matrix at each index)
     a and b: float
         Parameters for the beta distribution prior for the cluster connectivities. 
         a = b = 1 yields a uniform distribution.
@@ -75,7 +75,7 @@ def p_z(A, C, alpha = 1, log = True):
     return log_p_z if log else np.exp(log_p_z)
 
 
-def crp(n, alpha):
+def crp(n, alpha): # Not complete; just taken from the IRM package for inspiration.
     """Chinese restaurant process.
 
     Parameters
@@ -110,6 +110,19 @@ def crp(n, alpha):
 
     return assignments, n_assignments
 
+def Cmatrix_to_array(Cmat):
+    C = np.zeros(len(Cmat))
+    cluster = 0
+    for i, row in enumerate(Cmat):  # row = Cmat[i]
+        if np.any(Cmat[i]):
+            C[Cmat[i].astype(bool)] = cluster 
+            Cmat[Cmat[i].astype(bool)] = 0 # Remove these clusters
+            cluster += 1
+    return C
+
+
+
+
 
 def ClusterGraph(l, k, p, q):
     n = l * k
@@ -131,8 +144,8 @@ def ClusterGraph(l, k, p, q):
 if __name__ == "__main__":
     # from Basic_IRM import ClusterGraph
     import matplotlib.pyplot as plt
-    l = 5
-    k = 10
+    l = 5 # nr. of clusters,
+    k = 10 # k for nodes in clsuters l*k becomes nodes in total
 
     A_adj = ClusterGraph(l, k, 0.9, 0.01)
 
@@ -142,14 +155,14 @@ if __name__ == "__main__":
 
     K = 10
     # Create random clusterings
-    iterations = 100000
+    iterations = 100
     probs_C_log = np.zeros(iterations)
     random_state = 42
     for i in range(iterations):
         np.random.seed(random_state)
         C = np.zeros(l*k).astype(int)
         for n in range(l*k):
-            c = np.random.randint(0, high=K)
+            c = np.random.randint(0, high=K) # not including K, so K clusters. 
             C[n] = c # Assign clusters at random.
         probs_C_log[i] = p_x_giv_z(A_random, C, a = 1/2, b = 1/2)+p_z(A_random, C, alpha = 1)
         if i==0: best_clustering, best_P = C, probs_C_log[i]
@@ -166,5 +179,8 @@ if __name__ == "__main__":
     plt.imshow(A_C, cmap='gray')
     plt.show()
 
+    a = np.array([[1,0,1,0],[0,1,0,1],[1,0,1,0],[0,1,0,1]])
+    C1 = Cmatrix_to_array(a)
+    print(C1)
     # print(A_C)
 
