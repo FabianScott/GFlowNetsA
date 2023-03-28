@@ -39,6 +39,14 @@ def p_x_giv_z(A, C, a = 1, b = 1, log = True):
 
     return logP_x_giv_z if log else np.exp(logP_x_giv_z)
 
+
+def torch_posterior(A, C, a = 1, b = 1, log = True):
+
+
+
+    return
+
+
 def p_z(A, C, alpha = 1, log = True):
 
     """Probability of clustering.
