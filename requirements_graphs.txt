@@ -1,6 +1,6 @@
 numpy
 scipy
-pytorch
+torch
 matplotlib
 jupyter
 tqdm
