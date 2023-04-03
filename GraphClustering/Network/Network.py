@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 import torch.nn as nn
 import itertools
-from GraphClustering.IRM_post import p_x_giv_z
+from GraphClustering.IRM_post import torch_posterior, p_x_giv_z
 
 
 class GraphNet:
@@ -91,7 +91,7 @@ class GraphNet:
                     if self.is_terminal(x):
                         # Should calculate IRM value of the state:
                         adjacency_matrix, clustering_matrix, _ = self.get_matrices_from_state(x)
-                        backward = p_x_giv_z(adjacency_matrix, clustering_matrix)
+                        backward = torch_posterior(adjacency_matrix, clustering_matrix)
                     targets[i] = backward
 
                 loss = self.mse_loss(outputs, targets)
@@ -371,14 +371,16 @@ if __name__ == '__main__':
     # print(net.assign_clusters(a))
     bas = SimpleBackwardModel()
     #
-    cluster_list = torch.tensor([1, 1, 2, 3, 0])
-    clustering_mat = net.get_clustering_matrix(cluster_list, 4)
-    one_hot_node = torch.zeros(5)
-    one_hot_node[3] = 1
-    b = torch.concat((torch.tensor(a).flatten(), torch.tensor(clustering_mat).flatten(), one_hot_node))
+    clustering_list = torch.tensor([1, 1, 2, 3, 0])
+    clustering_mat = net.get_clustering_matrix(clustering_list, 4)
+    last_node_placed = torch.zeros(5)
+    last_node_placed[3] = 1
+    b = torch.concat((torch.tensor(a).flatten(), torch.tensor(clustering_mat).flatten(), last_node_placed))
     print(net.forward_flow(b))
     print(net.log_sum_flows(b))
-    final_states = net.sample_forward(a, epochs=10)
-    for state in final_states:
-        print(net.get_matrices_from_state(state)[1])
-    net.train(final_states)
+    # final_states = net.sample_forward(a, epochs=10)
+    # for state in final_states:
+    #     print(net.get_matrices_from_state(state)[1])
+    # net.train(final_states)
+    print(p_x_giv_z(a.detach().numpy(), clustering_list.detach().numpy()))
+    print(torch_posterior(a, clustering_list))
