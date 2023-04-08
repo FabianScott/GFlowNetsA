@@ -47,11 +47,12 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
 
 
 def torch_posterior(A, C, a=torch.ones(1), b=torch.ones(1), log=True):
+    torch.einsum("ii->i", A)[...] == 0 # Fills the diagonal with zeros.
     values, nk = torch.unique(C, return_counts=True)
-    n_C = torch.eye(C.max() + 1)[C - 1]
+    n_C = torch.eye(C.max() + 1)[C]
 
     m_kl = n_C.T @ A @ n_C
-    torch.einsum("ii->i", m_kl)
+    torch.einsum("ii->i", m_kl)[...] //= 2 # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing. 
 
     m_bar_kl = torch.outer(nk, nk) - torch.diag(nk * (nk + 1) / 2) - m_kl
 
