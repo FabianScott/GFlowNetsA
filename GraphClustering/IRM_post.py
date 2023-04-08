@@ -23,16 +23,17 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
     ----------
     Probability of data given clustering: float
     """
+    np.einsum("ii->i", A)[...] = 0 # This function assumes that nodes aren't connected to themselves. This should be irrelevant for the clustering.
     # Product over all pairs of components.
     values, nk = np.unique(C, return_counts=True)
     # I just need to create m_kl and m_bar_kl matrices. Then I can vectorize the whole thing
 
     # create node-cluster adjacency matrix
-    n_C = np.identity(C.max() + 1, int)[C - 1]
+    n_C = np.identity(C.max() + 1, int)[C]
     m_kl = n_C.T @ A @ n_C
 
     np.einsum("ii->i", m_kl)[
-        ...] //= 2  # np.diag(m_kl)[...] //= 2 is another way of taking the diagonal, but it doesn't allow editing.
+        ...] //= 2  # np.diag(m_kl)[...] //= 2 , but this allows for an in-place update.
     m_bar_kl = np.outer(nk, nk) - np.diag(nk * (nk + 1) / 2) - m_kl  # The diagonal simplifies to the sum up to nk-1.
 
     # Alternative to the matrix multiplication. This is a little faster.
@@ -164,6 +165,10 @@ def ClusterGraph(l, k, p, q):
 
 if __name__ == "__main__":
     # from Basic_IRM import ClusterGraph
+    # A = np.array([[1,0,1,0,0], [0,1,1,1,1], [1,1,1,1,1], [0,1,1,1,1], [0,1,1,1,1]])
+    # C = np.array([1,1,2,3,0])
+    # p_x_giv_z(A, C, a=1, b=1)
+
     import matplotlib.pyplot as plt
     l = 5 # nr. of clusters,
     k = 10 # k for nodes in clsuters l*k becomes nodes in total
