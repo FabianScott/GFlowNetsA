@@ -12,7 +12,7 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
     Parameters
     ----------
     A : Adjacency matrix (2D ndarray)
-    C : clustering index array (ndarray)
+    C : clustering index array (1D ndarray) (n long with the cluster c of each node ordered by the Adjacency matrix at each index)
     a and b: float
         Parameters for the beta distribution prior for the cluster connectivities. 
         a = b = 1 yields a uniform distribution.
@@ -23,16 +23,17 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
     ----------
     Probability of data given clustering: float
     """
+    np.einsum("ii->i", A)[...] = 0 # This function assumes that nodes aren't connected to themselves. This should be irrelevant for the clustering.
     # Product over all pairs of components.
     values, nk = np.unique(C, return_counts=True)
     # I just need to create m_kl and m_bar_kl matrices. Then I can vectorize the whole thing
 
     # create node-cluster adjacency matrix
-    n_C = np.identity(C.max() + 1, int)[C - 1]
+    n_C = np.identity(C.max() + 1, int)[C]
     m_kl = n_C.T @ A @ n_C
 
     np.einsum("ii->i", m_kl)[
-        ...] //= 2  # np.diag(m_kl)[...] //= 2 is another way of taking the diagonal, but it doesn't allow editing.
+        ...] //= 2  # np.diag(m_kl)[...] //= 2 , but this allows for an in-place update.
     m_bar_kl = np.outer(nk, nk) - np.diag(nk * (nk + 1) / 2) - m_kl  # The diagonal simplifies to the sum up to nk-1.
 
     # Alternative to the matrix multiplication. This is a little faster.
@@ -46,11 +47,12 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
 
 
 def torch_posterior(A, C, a=torch.ones(1), b=torch.ones(1), log=True):
+    torch.einsum("ii->i", A)[...] == 0 # Fills the diagonal with zeros.
     values, nk = torch.unique(C, return_counts=True)
-    n_C = torch.eye(C.max() + 1)[C - 1]
+    n_C = torch.eye(C.max() + 1)[C]
 
     m_kl = n_C.T @ A @ n_C
-    torch.einsum("ii->i", m_kl)
+    torch.einsum("ii->i", m_kl)[...] //= 2 # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing. 
 
     m_bar_kl = torch.outer(nk, nk) - torch.diag(nk * (nk + 1) / 2) - m_kl
 
@@ -96,7 +98,7 @@ def p_z(A, C, alpha=1, log=True):
     return log_p_z if log else np.exp(log_p_z)
 
 
-def crp(n, alpha):
+def crp(n, alpha): # Not complete; just taken from the IRM package for inspiration.
     """Chinese restaurant process.
 
     Parameters
@@ -131,6 +133,19 @@ def crp(n, alpha):
 
     return assignments, n_assignments
 
+def Cmatrix_to_array(Cmat):
+    C = np.zeros(len(Cmat))
+    cluster = 0
+    for i, row in enumerate(Cmat):  # row = Cmat[i]
+        if np.any(Cmat[i]):
+            C[Cmat[i].astype(bool)] = cluster 
+            Cmat[Cmat[i].astype(bool)] = 0 # Remove these clusters
+            cluster += 1
+    return C
+
+
+
+
 
 def ClusterGraph(l, k, p, q):
     n = l * k
@@ -151,10 +166,13 @@ def ClusterGraph(l, k, p, q):
 
 if __name__ == "__main__":
     # from Basic_IRM import ClusterGraph
-    import matplotlib.pyplot as plt
+    # A = np.array([[1,0,1,0,0], [0,1,1,1,1], [1,1,1,1,1], [0,1,1,1,1], [0,1,1,1,1]])
+    # C = np.array([1,1,2,3,0])
+    # p_x_giv_z(A, C, a=1, b=1)
 
-    l = 5
-    k = 10
+    import matplotlib.pyplot as plt
+    l = 5 # nr. of clusters,
+    k = 10 # k for nodes in clsuters l*k becomes nodes in total
 
     A_adj = ClusterGraph(l, k, 0.9, 0.01)
 
@@ -164,7 +182,7 @@ if __name__ == "__main__":
 
     K = 10
     # Create random clusterings
-    iterations = 100000
+    iterations = 100
     probs_C_log = np.zeros(iterations)
     random_state = 42
     for i in range(iterations):
@@ -188,4 +206,7 @@ if __name__ == "__main__":
     plt.imshow(A_C, cmap='gray')
     plt.show()
 
+    a = np.array([[1,0,1,0],[0,1,0,1],[1,0,1,0],[0,1,0,1]])
+    C1 = Cmatrix_to_array(a)
+    print(C1)
     # print(A_C)
