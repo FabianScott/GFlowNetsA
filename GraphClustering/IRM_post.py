@@ -45,25 +45,6 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
 
     return logP_x_giv_z if log else np.exp(logP_x_giv_z)
 
-
-def torch_posterior(A, C, a=torch.ones(1), b=torch.ones(1), log=True):
-    torch.einsum("ii->i", A)[...] == 0 # Fills the diagonal with zeros.
-    values, nk = torch.unique(C, return_counts=True)
-    n_C = torch.eye(C.max() + 1)[C]
-
-    m_kl = n_C.T @ A @ n_C
-    torch.einsum("ii->i", m_kl)[...] //= 2 # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing. 
-
-    m_bar_kl = torch.outer(nk, nk) - torch.diag(nk * (nk + 1) / 2) - m_kl
-
-    def log_beta(x1, x2):
-        return (x1.lgamma() * x2.lgamma()) / (x1+x2).lgamma()
-
-    logP_x_giv_z = torch.sum(log_beta(m_kl + a, m_bar_kl + b) - log_beta(a, b))
-
-    return logP_x_giv_z if log else torch.exp(logP_x_giv_z)
-
-
 def p_z(A, C, alpha=1, log=True):
     """Probability of clustering.
 
@@ -96,6 +77,37 @@ def p_z(A, C, alpha=1, log=True):
     log_p_z = log_labellings * (gammaln(A) - gammaln(A + N)) * np.sum(gammaln(alpha + nk) - gammaln(alpha))
 
     return log_p_z if log else np.exp(log_p_z)
+
+def torch_posterior(A, C, a=torch.ones(1), b=torch.ones(1), alpha = 1, log=True):
+    # Likelyhood part
+    torch.einsum("ii->i", A)[...] == 0 # Fills the diagonal with zeros.
+    values, nk = torch.unique(C, return_counts=True)
+    n_C = torch.eye(C.max() + 1)[C]
+
+    m_kl = n_C.T @ A @ n_C
+    torch.einsum("ii->i", m_kl)[...] //= 2 # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing. 
+
+    m_bar_kl = torch.outer(nk, nk) - torch.diag(nk * (nk + 1) / 2) - m_kl
+
+    def log_beta(x1, x2):
+        return (x1.lgamma() * x2.lgamma()) / (x1+x2).lgamma()
+
+    logP_x_giv_z = torch.sum(log_beta(m_kl + a, m_bar_kl + b) - log_beta(a, b))
+
+    # Prior part
+    K = torch.amax(C)
+    N = torch.len(A)
+    values, nk = torch.unique(C, return_counts=True)
+    K_bar = len(values) - K  # number of empty clusters.
+
+    log_labellings = gammaln(K + 1) - gammaln(K - K_bar + 1)
+    A = alpha * K
+
+    # nk (array of number of nodes in each cluster)
+    log_p_z = log_labellings * (gammaln(A) - gammaln(A + N)) * torch.sum(gammaln(alpha + nk) - gammaln(alpha))
+
+    # Return posterior
+    return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
 
 
 def crp(n, alpha): # Not complete; just taken from the IRM package for inspiration.
