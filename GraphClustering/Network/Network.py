@@ -210,13 +210,14 @@ class GraphNet:
             # Initialize the empty clustering and one-hot vector
             clustering_matrix = torch.zeros(self.size)
             last_node_placed = torch.zeros(self.n_nodes)
+            clustering_list = torch.zeros(self.n_nodes)
             # Here to ensure an empty state if
             # Each iteration has self.termination_chance of being the last, and we ensure no empty states
-            while torch.rand(1) > self.termination_chance or not last_node_placed.sum():
+            while not last_node_placed.sum() or (torch.rand(1) >= self.termination_chance and torch.sum(clustering_list > 0) != self.n_nodes):
                 # Create the state vector and pass it to the NN
                 current_state = torch.concat(
                     (adjacency_matrix.flatten(), clustering_matrix.flatten(), last_node_placed))
-                current_clustering_list, num_clusters = self.get_clustering_list(clustering_matrix)
+                clustering_list, num_clusters = self.get_clustering_list(clustering_matrix)
                 # Reset last node placed after use
                 last_node_placed = torch.zeros(self.n_nodes)
                 forward_flows = self.forward_flow(current_state)
@@ -225,13 +226,13 @@ class GraphNet:
                 index_chosen = torch.multinomial(forward_probs, 1)
                 # First find the row and column we have chosen from the probs
                 node_chosen = index_chosen // num_clusters
-                cluster_index_chosen = index_chosen - node_chosen
+                cluster_index_chosen = int(node_chosen * num_clusters - index_chosen)
                 # Next, increment the node chosen by the number of nodes ahead of it that were already in the graph
-                node_chosen += torch.sum(current_clustering_list[:node_chosen] > 0)
+                node_chosen += torch.sum(clustering_list[:node_chosen] > 0)
                 # Update the cluster
                 # Labels are 1-indexed, indices are 0 indexed
-                current_clustering_list[node_chosen] = torch.tensor(cluster_index_chosen + 1, dtype=torch.float32)
-                clustering_matrix = self.get_clustering_matrix(current_clustering_list, num_clusters)
+                clustering_list[node_chosen] = torch.tensor(cluster_index_chosen + 1, dtype=torch.float32)
+                clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
                 last_node_placed[node_chosen] = 1
 
             final_states[epoch] = current_state
@@ -387,6 +388,9 @@ if __name__ == '__main__':
     print(p_x_giv_z(adjacency_matrix.detach().numpy(), clustering_list.detach().numpy()))
     print(torch_posterior(adjacency_matrix, clustering_list))
     print(net.forward_flow(b))
+    net.termination_chance = 0
     X = net.sample_forward(adjacency_matrix=adjacency_matrix)
     net.train(X)
+    X1 = net.sample_forward(adjacency_matrix=adjacency_matrix)
+
     print(net.forward_flow(b))
