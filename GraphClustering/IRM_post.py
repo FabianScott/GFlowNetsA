@@ -23,7 +23,7 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
     ----------
     Probability of data given clustering: float
     """
-    np.einsum("ii->i", A)[...] = 0 # This function assumes that nodes aren't connected to themselves. This should be irrelevant for the clustering.
+    np.einsum("ii->i", A)[...] = 0  # This function assumes that nodes aren't connected to themselves. This should be irrelevant for the clustering.
     # Product over all pairs of components.
     values, nk = np.unique(C, return_counts=True)
     # I just need to create m_kl and m_bar_kl matrices. Then I can vectorize the whole thing
@@ -46,20 +46,19 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
     return logP_x_giv_z if log else np.exp(logP_x_giv_z)
 
 
-def torch_posterior(A, C, a=torch.ones(1), b=torch.ones(1), log=True):
-    torch.einsum("ii->i", A)[...] == 0 # Fills the diagonal with zeros.
+def torch_posterior(A_in, C_in, a=torch.ones(1), b=torch.ones(1), log=True):
+    A = torch.t_copy(A_in)
+    C = torch.t_copy(torch.tensor(C_in, dtype=torch.int32))
+    torch.einsum("ii->i", A)[...] = 0   # Fills the diagonal with zeros.
     values, nk = torch.unique(C, return_counts=True)
-    n_C = torch.eye(C.max() + 1)[C]
+    n_C = torch.eye(int(C.max()) + 1)[C]    # Problem when there are no clusters
 
     m_kl = n_C.T @ A @ n_C
-    torch.einsum("ii->i", m_kl)[...] //= 2 # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing. 
+    torch.einsum("ii->i", m_kl)[...] //= 2  # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing.
 
     m_bar_kl = torch.outer(nk, nk) - torch.diag(nk * (nk + 1) / 2) - m_kl
 
-    def log_beta(x1, x2):
-        return (x1.lgamma() * x2.lgamma()) / (x1+x2).lgamma()
-
-    logP_x_giv_z = torch.sum(log_beta(m_kl + a, m_bar_kl + b) - log_beta(a, b))
+    logP_x_giv_z = torch.sum(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b))
 
     return logP_x_giv_z if log else torch.exp(logP_x_giv_z)
 

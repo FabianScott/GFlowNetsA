@@ -317,7 +317,9 @@ class GraphNet:
         :return:
         """
         # Check the diagonal of the clustering matrix using indexing and if the sum == n_nodes it is terminal
-        return not state[::self.nodes][self.n_nodes ** 2:2 * (self.n_nodes ** 2)].sum() % self.n_nodes
+
+        return state[::self.n_nodes][self.n_nodes ** 2:2 * (self.n_nodes ** 2)].sum() == self.n_nodes
+
 
 class MLP(nn.Module):
     def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3):
@@ -361,12 +363,12 @@ if __name__ == '__main__':
     using_cuda = False
     if torch.cuda.is_available() and using_cuda:
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    a = torch.ones((5, 5))
-    a[0, 1], a[1, 0] = 0, 0
-    a[0, 3], a[3, 0] = 0, 0
-    a[0, 4], a[4, 0] = 0, 0
+    adjacency_matrix = torch.ones((5, 5))
+    adjacency_matrix[0, 1], adjacency_matrix[1, 0] = 0, 0
+    adjacency_matrix[0, 3], adjacency_matrix[3, 0] = 0, 0
+    adjacency_matrix[0, 4], adjacency_matrix[4, 0] = 0, 0
 
-    net = GraphNet(n_nodes=a.size()[0], using_cuda=using_cuda)
+    net = GraphNet(n_nodes=adjacency_matrix.size()[0], using_cuda=using_cuda)
 
     # print(net.assign_clusters(a))
     bas = SimpleBackwardModel()
@@ -375,12 +377,16 @@ if __name__ == '__main__':
     clustering_mat = net.get_clustering_matrix(clustering_list, 4)
     last_node_placed = torch.zeros(5)
     last_node_placed[3] = 1
-    b = torch.concat((torch.tensor(a).flatten(), torch.tensor(clustering_mat).flatten(), last_node_placed))
-    print(net.forward_flow(b))
-    print(net.log_sum_flows(b))
+    b = torch.concat((torch.tensor(adjacency_matrix).flatten(), torch.tensor(clustering_mat).flatten(), last_node_placed))
+    # print(net.forward_flow(b))
+    # print(net.log_sum_flows(b))
     # final_states = net.sample_forward(a, epochs=10)
     # for state in final_states:
     #     print(net.get_matrices_from_state(state)[1])
     # net.train(final_states)
-    print(p_x_giv_z(a.detach().numpy(), clustering_list.detach().numpy()))
-    print(torch_posterior(a, clustering_list))
+    print(p_x_giv_z(adjacency_matrix.detach().numpy(), clustering_list.detach().numpy()))
+    print(torch_posterior(adjacency_matrix, clustering_list))
+    print(net.forward_flow(b))
+    X = net.sample_forward(adjacency_matrix=adjacency_matrix)
+    net.train(X)
+    print(net.forward_flow(b))
