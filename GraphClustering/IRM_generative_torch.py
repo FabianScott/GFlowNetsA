@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import torch
 from torch.distributions import Beta
+from IRM_post import torch_posterior, p_z
+
 
 # Collected function
 def IRM_graph(alpha, a, b, N):
@@ -80,8 +82,24 @@ def Adj_matrix(phis, clusters):
 
     return Adj_matrix
 
+
+def clusterIndex(clusters):
+    idxs = torch.tensor([])
+    for i, k in enumerate(clusters):
+        idxs = torch.cat((idxs, torch.tensor([i] * k)))
+    return idxs
+
+
 if __name__ == "__main__":
-    adj, clusters = IRM_graph(10, 0.5, 0.5, 200)
+    adj, clusters = IRM_graph(3, 0.5, 0.5, 20)
+    cluster_idxs = clusterIndexnp(clusters)
+    random_cluster_idxs = torch.tensor([0, 0, 0, 0, 1, 1, 1, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 7, 8])
+    print(p_z(adj, random_cluster_idxs, alpha=3, b=0.5, a=0.5))
+    print(p_z(adj, cluster_idxs, alpha=3, b=0.5, a=0.5))
+    print('Wrong params:')
+    print(p_z(adj, random_cluster_idxs))
+    print(p_z(adj, cluster_idxs))
     print(clusters)
+
     plt.imshow(adj)
     plt.show()
