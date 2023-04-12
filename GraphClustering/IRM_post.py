@@ -98,7 +98,7 @@ def torch_posterior(A_in, C_in, a=torch.ones(1), b=torch.ones(1), alpha = 1, log
 
     # Prior part
     K = torch.amax(C)
-    N = torch.len(A)
+    N = len(A)
     values, nk = torch.unique(C, return_counts=True)
     K_bar = len(values) - K  # number of empty clusters.
 

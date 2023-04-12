@@ -226,7 +226,7 @@ class GraphNet:
                 index_chosen = torch.multinomial(forward_probs, 1)
                 # First find the row and column we have chosen from the probs
                 node_chosen = index_chosen // num_clusters
-                cluster_index_chosen = int(node_chosen * num_clusters - index_chosen)
+                cluster_index_chosen = index_chosen % num_clusters
                 # Next, increment the node chosen by the number of nodes ahead of it that were already in the graph
                 node_chosen += torch.sum(clustering_list[:node_chosen] > 0)
                 # Update the cluster
