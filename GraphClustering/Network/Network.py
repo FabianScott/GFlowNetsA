@@ -84,15 +84,14 @@ class GraphNet:
 
                 outputs = torch.zeros((batch_size, 1))
                 targets = torch.zeros((batch_size, 1))
-                for i, x in enumerate(batch_x):
-
+                for j, x in enumerate(batch_x):
                     _, forward, backward = self.log_sum_flows(x)
-                    outputs[i] = forward
+                    outputs[j] = forward
                     if self.is_terminal(x):
                         # Should calculate IRM value of the state:
                         adjacency_matrix, clustering_matrix, _ = self.get_matrices_from_state(x)
                         backward = torch_posterior(adjacency_matrix, clustering_matrix)
-                    targets[i] = backward
+                    targets[j] = backward
 
                 loss = self.mse_loss(outputs, targets)
 
@@ -228,7 +227,8 @@ class GraphNet:
                 node_chosen = index_chosen // num_clusters
                 cluster_index_chosen = index_chosen % num_clusters
                 # Next, increment the node chosen by the number of nodes ahead of it that were already in the graph
-                node_chosen += torch.sum(clustering_list[:node_chosen] > 0)
+                indicies_available = torch.argwhere(clustering_list == 0)
+                node_chosen = indicies_available[node_chosen][0]    # Argwhere produces a 2 dimensional array
                 # Update the cluster
                 # Labels are 1-indexed, indices are 0 indexed
                 clustering_list[node_chosen] = torch.tensor(cluster_index_chosen + 1, dtype=torch.float32)
