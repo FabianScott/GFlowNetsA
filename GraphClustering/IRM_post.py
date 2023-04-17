@@ -112,40 +112,6 @@ def torch_posterior(A_in, C_in, a=torch.ones(1), b=torch.ones(1), alpha = 1, log
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
 
 
-def crp(n, alpha): # Not complete; just taken from the IRM package for inspiration.
-    """Chinese restaurant process.
-
-    Parameters
-    ----------
-    n : int
-        num of people to seat.
-    alpha : float
-        Concentration.
-
-    Return
-    ----------
-    assignments : list
-        table_id for each people.
-    n_assignments : list
-        partition.
-    """
-    n = int(n)
-    alpha = float(alpha)
-    assert n >= 1
-    assert alpha > 0
-
-    assignments = [0]  # First person sits at table 0.
-    n_assignments = [1]  # One person at table 0.
-    for _ in range(2, n + 1):
-        table_id = pick_discrete(n_assignments) - 1
-        if table_id == -1:
-            n_assignments.append(1)
-            assignments.append(len(n_assignments) - 1)
-        else:
-            n_assignments[table_id] = n_assignments[table_id] + 1
-            assignments.append(table_id)
-
-    return assignments, n_assignments
 
 def Cmatrix_to_array(Cmat):
     C = np.zeros(len(Cmat))
