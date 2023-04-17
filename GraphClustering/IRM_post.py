@@ -108,7 +108,7 @@ def torch_posterior(A_in, C_in, a=torch.ones(1), b=torch.ones(1), alpha = 1, log
     # nk (array of number of nodes in each cluster)
     log_p_z = log_labellings * (gammaln(A) - gammaln(A + N)) * torch.sum(gammaln(alpha + nk) - gammaln(alpha))
 
-    # Return posterior
+    # Return joint probability, which is proportional to the posterior
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
 
 
