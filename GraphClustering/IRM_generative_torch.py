@@ -92,14 +92,15 @@ def clusterIndex(clusters):
 
 if __name__ == "__main__":
     adj, clusters = IRM_graph(3, 0.5, 0.5, 20)
-    cluster_idxs = clusterIndexnp(clusters)
+    cluster_idxs = clusterIndex(clusters)
     random_cluster_idxs = torch.tensor([0, 0, 0, 0, 1, 1, 1, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 7, 8])
-    print(p_z(adj, random_cluster_idxs, alpha=3, b=0.5, a=0.5))
-    print(p_z(adj, cluster_idxs, alpha=3, b=0.5, a=0.5))
+    print(torch_posterior(adj, random_cluster_idxs, alpha=3, b=0.5, a=0.5))
+    print(torch_posterior(adj, cluster_idxs, alpha=3, b=0.5, a=0.5))
     print('Wrong params:')
-    print(p_z(adj, random_cluster_idxs))
-    print(p_z(adj, cluster_idxs))
+    print(torch_posterior(adj, random_cluster_idxs))
+    print(torch_posterior(adj, cluster_idxs))
     print(clusters)
 
     plt.imshow(adj)
     plt.show()
+    a = 2
