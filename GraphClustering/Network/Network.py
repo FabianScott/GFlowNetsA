@@ -7,16 +7,16 @@ try:
     from GraphClustering.IRM_post import torch_posterior, p_x_giv_z
 except:
     print("Couldn't import from GraphClustering.IRM_post. Adding parent folder to path instead.")
+    try:
+        import os
+        import sys
+        new_path = os.path.join(os.path.dirname(__file__), '..')
+        sys.path.append(new_path)
+        from IRM_post import torch_posterior, p_x_giv_z
+    except:
+        print("Adding parent folder to path failed as well.")
+        sys.exit()
 
-try:
-    import os
-    import sys
-    new_path = os.path.join(os.path.dirname(__file__), '..')
-    sys.path.append(new_path)
-    from IRM_post import torch_posterior, p_x_giv_z
-except:
-    print("Adding parent folder to path failed as well.")
-    sys.exit()
 
 class GraphNet:
     def __init__(self,
