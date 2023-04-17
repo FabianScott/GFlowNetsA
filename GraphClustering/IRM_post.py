@@ -124,9 +124,6 @@ def Cmatrix_to_array(Cmat):
     return C
 
 
-
-
-
 def ClusterGraph(l, k, p, q):
     n = l * k
     adjacency = np.zeros((n, n))
