@@ -66,6 +66,15 @@ class GraphNet:
         return MLP(n_hidden=self.n_hidden, n_clusters=self.n_clusters, n_layers=self.n_layers, output_size=1)
 
     def train(self, X, Y=None, epochs=100, batch_size=None):
+        """
+        Given an iterable of final states and a number of epochs, train the
+        network.
+        :param X:
+        :param Y:
+        :param epochs:
+        :param batch_size:
+        :return:
+        """
         # X: an iterable/index-able of final cluster assignments
         # Y: an iterable/index-able of IRM values for each X
         if batch_size is None:
@@ -193,7 +202,7 @@ class GraphNet:
     def sample_forward(self, adjacency_matrix, epochs=None):
         """
         Given an adjacency matrix, cluster some graphs and return
-        epochs number of final states reached using the current
+        'epochs' number of final states reached using the current
         forward model. If epochs is left as None use self.epochs.
         :param adjacency_matrix: matrix (n_nodes, n_nodes)
         :param epochs: (None or int)
@@ -370,7 +379,6 @@ if __name__ == '__main__':
     adjacency_matrix[0, 4], adjacency_matrix[4, 0] = 0, 0
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], using_cuda=using_cuda)
-
     # print(net.assign_clusters(a))
     bas = SimpleBackwardModel()
     #
