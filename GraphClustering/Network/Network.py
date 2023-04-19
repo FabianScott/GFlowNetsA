@@ -296,7 +296,7 @@ class GraphNet:
 
         current_clustering_copy = torch.clone(clustering_matrix)
         clustering_list = torch.zeros(current_clustering_copy.size()[0])
-        number_of_clusters = 1
+        number_of_clusters = 1  # starting at the empty cluster
         node_no = 0
         while torch.sum(current_clustering_copy):
             row = current_clustering_copy[node_no]
@@ -390,7 +390,7 @@ if __name__ == '__main__':
     adjacency_matrix[0, 3], adjacency_matrix[3, 0] = 0, 0
     adjacency_matrix[0, 4], adjacency_matrix[4, 0] = 0, 0
 
-    net = GraphNet(n_nodes=adjacency_matrix.size()[0], using_cuda=using_cuda)
+    net = GraphNet(n_nodes=adjacency_matrix.size()[0], using_cuda=using_cuda, using_backward_model=False)
     # print(net.assign_clusters(a))
     bas = SimpleBackwardModel()
     #
