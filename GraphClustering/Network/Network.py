@@ -111,7 +111,7 @@ class GraphNet:
                     if self.is_terminal(x):
                         # Should calculate IRM value of the state:
                         adjacency_matrix, clustering_matrix, _ = self.get_matrices_from_state(x)
-                        backward = torch_posterior(adjacency_matrix, clustering_matrix)
+                        backward = torch_posterior(adjacency_matrix, clustering_matrix, using_cuda=self.using_cuda)
                     targets[j] = backward
 
                 loss = self.mse_loss(outputs, targets)
@@ -405,7 +405,7 @@ if __name__ == '__main__':
     # for state in final_states:
     #     print(net.get_matrices_from_state(state)[1])
     # net.train(final_states)
-    print(p_x_giv_z(adjacency_matrix.detach().numpy(), clustering_list.detach().numpy()))
+    # print(p_x_giv_z(adjacency_matrix.detach().numpy(), clustering_list.detach().numpy()))
     print(torch_posterior(adjacency_matrix, clustering_list))
     print(net.forward_flow(b))
     net.termination_chance = 0
