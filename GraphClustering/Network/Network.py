@@ -3,6 +3,7 @@ import torch
 from tqdm import tqdm
 import torch.nn as nn
 import itertools
+from collections import defaultdict
 try:
     from GraphClustering.IRM_post import torch_posterior, p_x_giv_z
 except:
@@ -259,6 +260,58 @@ class GraphNet:
             final_states[epoch] = current_state
 
         return final_states
+    
+    def full_sample_distribution_G(self, log = False):
+        # Warning:
+        """
+        Computes the exact forward sample probabilties
+        for each possible clustering.
+        :param log: (bool) Whether or not to compute the function using log-probabilities. This doesn't work, as we have to sum probabilities for multiple avenues.
+        :return: dictionary of the form {clustering_matrix: probability}
+        """
+        print("Warning: The state representation in this function does not include the last node placed.")
+        print("Warning: Because this function has to sum small probabilities, it will likely experience underflow even for meagre graphs.")
+        print("Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This might take a while.")
+ 
+        # Initialize the empty clustering and one-hot vector (source state)
+        clustering_matrix = torch.zeros(self.size)
+        clustering_list = torch.zeros(self.n_nodes)
+        next_states_p = [defaultdict(lambda: 0) for _ in range(self.n_nodes + 1)]
+        state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten())) # Init_state
+        next_states_p[0] = {clustering_list : 1} # Transition to state 0
+        for n_layer in tqdm(range(0, self.n_nodes)):
+            for clustering_list, prob in next_states_p[n_layer].items():
+                if log: prob = torch.log(prob)
+                num_clusters = len(torch.unique(clustering_list))-1
+                clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
+                state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
+                
+                output = self.forward_flow(self, state)
+                # output = torch.zeros((nodes_to_place.size()[0], number_of_clusters))
+                # shape = (nodes left, number of clusters (+1))
+                if not log:
+                    output_prob = output/torch.sum(output)
+                else:
+                    output_prob = torch.log(output) - torch.log(torch.sum(output))
+
+                nodes_to_place, number_of_clusters = output_prob.size()
+
+                nodes_unclustered = torch.argwhere(clustering_list == 0)
+                assert len(nodes_unclustered) == nodes_to_place
+                assert number_of_clusters == num_clusters + 1
+
+                for n, node_index in enumerate(nodes_unclustered):
+                    for c in range(1, number_of_clusters+1):
+                        temp_clustering_list = torch.copy(clustering_list)
+                        temp_clustering_list[node_index] = c
+                        if not log:
+                            next_states_p[n_layer+1][temp_clustering_list] += (prob*output_prob[n,c])
+                        else:
+                            next_states_p[n_layer+1][temp_clustering_list] += torch.exp(prob + output_prob[n,c])
+                
+                assert 0.99 < sum(next_states_p[n_layer+1].values()) < 1.01
+
+
 
 #%% Helpers:
     def get_clustering_matrix(self, clustering_list, number_of_clusters):
