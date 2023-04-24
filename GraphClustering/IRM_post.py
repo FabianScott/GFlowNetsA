@@ -3,6 +3,7 @@ import torch
 # from torch.distributions.gamma import Gamma
 import numpy as np
 from scipy.special import betaln, gammaln
+from torch.special import gammaln as torch_gammaln
 
 
 def p_x_giv_z(A, C, a=1, b=1, log=True):
@@ -80,9 +81,15 @@ def p_z(A, C, alpha=1, log=True):
     return log_p_z if log else np.exp(log_p_z)
 
 
-
-def torch_posterior(A_in, C_in, a=torch.ones(1), b=torch.ones(1), alpha = 1, log=True):
+def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True):
     # Likelyhood part
+    if a is None:
+        a = torch.ones(1)
+    if b is None:
+        b = torch.ones(1)
+    if alpha is None:
+        alpha = torch.ones(1)
+
     A = torch.t_copy(A_in)
     C = torch.t_copy(torch.tensor(C_in, dtype=torch.int32))
     torch.einsum("ii->i", A)[...] = 0   # Fills the diagonal with zeros.
@@ -94,7 +101,16 @@ def torch_posterior(A_in, C_in, a=torch.ones(1), b=torch.ones(1), alpha = 1, log
 
     m_bar_kl = torch.outer(nk, nk) - torch.diag(nk * (nk + 1) / 2) - m_kl
 
-    logP_x_giv_z = torch.sum(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b))
+    print(m_bar_kl.device, m_kl.device)
+
+    if str(a.device)[:4] == 'cuda':
+        a_ = a.detach().cpu().numpy()
+        b_ = b.detach().cpu().numpy()
+        m_kl_ = m_kl.detach().cpu().numpy()
+        m_bar_kl_ = m_bar_kl.detach().cpu().numpy()
+        logP_x_giv_z = torch.tensor(np.sum(betaln(m_kl_ + a_, m_bar_kl_ + b_) - betaln(a_, b_)))
+    else:
+        logP_x_giv_z = torch.sum(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b))
 
     # Prior part
     K = torch.amax(C)
@@ -102,11 +118,11 @@ def torch_posterior(A_in, C_in, a=torch.ones(1), b=torch.ones(1), alpha = 1, log
     values, nk = torch.unique(C, return_counts=True)
     K_bar = len(values) - K  # number of empty clusters.
 
-    log_labellings = gammaln(K + 1) - gammaln(K - K_bar + 1)
+    log_labellings = torch_gammaln(K + 1) - torch_gammaln(K - K_bar + 1)
     A = alpha * K
 
     # nk (array of number of nodes in each cluster)
-    log_p_z = log_labellings * (gammaln(A) - gammaln(A + N)) * torch.sum(gammaln(alpha + nk) - gammaln(alpha))
+    log_p_z = log_labellings * (torch_gammaln(A) - torch_gammaln(A + N)) * torch.sum(torch_gammaln(alpha + nk) - torch_gammaln(alpha))
 
     # Return joint probability, which is proportional to the posterior
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
