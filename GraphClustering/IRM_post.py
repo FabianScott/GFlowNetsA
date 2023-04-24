@@ -1,6 +1,4 @@
 import torch
-# from torch.distributions.beta import Beta
-# from torch.distributions.gamma import Gamma
 import numpy as np
 from scipy.special import betaln, gammaln
 from torch.special import gammaln as torch_gammaln
