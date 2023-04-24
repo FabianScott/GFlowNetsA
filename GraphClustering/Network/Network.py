@@ -22,6 +22,9 @@ except:
 class GraphNet:
     def __init__(self,
                  n_nodes,
+                 a = 1,
+                 b = 1,
+                 alpha = 1,
                  termination_chance=None,
                  env=None,
                  n_layers=2,
@@ -47,6 +50,7 @@ class GraphNet:
         self.n_clusters = n_clusters
         self.batch_size = batch_size
         self.n_nodes = n_nodes
+        self.a, self.b, self.alpha = torch.tensor([a]), torch.tensor([b]), torch.tensor([alpha])
         self.size = (n_nodes, n_nodes)
         self.model_forward = MLP(output_size=1,
                                  n_nodes=n_nodes,
@@ -112,7 +116,7 @@ class GraphNet:
                     if self.is_terminal(x):
                         # Should calculate IRM value of the state:
                         adjacency_matrix, clustering_matrix, _ = self.get_matrices_from_state(x)
-                        backward = torch_posterior(adjacency_matrix, clustering_matrix, using_cuda=self.using_cuda)
+                        backward = torch_posterior(adjacency_matrix, clustering_matrix, a=self.a, b=self.b, alpha=self.alpha)
                     targets[j] = backward
 
                 loss = self.mse_loss(outputs, targets)
@@ -533,7 +537,7 @@ if __name__ == '__main__':
     #     print(net.get_matrices_from_state(state)[1])
     # net.train(final_states)
     # print(p_x_giv_z(adjacency_matrix.detach().numpy(), clustering_list.detach().numpy()))
-    print(torch_posterior(adjacency_matrix, clustering_list))
+    print(torch_posterior(adjacency_matrix, clustering_list, a=net.a, b=net.b, alpha=net.alpha))
     print(net.forward_flow(b))
     net.get_all_probs(adjacency_matrix)
     # print('Placing node:')
