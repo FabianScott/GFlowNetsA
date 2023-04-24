@@ -4,19 +4,7 @@ from tqdm import tqdm
 import torch.nn as nn
 import itertools
 from collections import defaultdict
-try:
-    from GraphClustering.IRM_post import torch_posterior, p_x_giv_z
-except:
-    print("Couldn't import from GraphClustering.IRM_post. Adding parent folder to path instead.")
-    try:
-        import os
-        import sys
-        new_path = os.path.join(os.path.dirname(__file__), '..')
-        sys.path.append(new_path)
-        from IRM_post import torch_posterior, p_x_giv_z
-    except:
-        print("Adding parent folder to path failed as well.")
-        sys.exit()
+from GraphClustering import torch_posterior
 
 
 class GraphNet:
