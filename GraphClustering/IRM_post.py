@@ -80,7 +80,7 @@ def p_z(A, C, alpha=1, log=True):
 
 
 def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True):
-    # Likelyhood part
+    # Likelihood part
     if a is None:
         a = torch.ones(1)
     if b is None:
