@@ -1,6 +1,4 @@
 import torch
-# from torch.distributions.beta import Beta
-# from torch.distributions.gamma import Gamma
 import numpy as np
 from scipy.special import betaln, gammaln
 from torch.special import gammaln as torch_gammaln
@@ -82,7 +80,7 @@ def p_z(A, C, alpha=1, log=True):
 
 
 def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True):
-    # Likelyhood part
+    # Likelihood part
     if a is None:
         a = torch.ones(1)
     if b is None:

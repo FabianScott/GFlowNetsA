@@ -1,18 +1,16 @@
-import numpy as np
 import torch
+import itertools
+import numpy as np
 from tqdm import tqdm
 import torch.nn as nn
-import itertools
-from collections import defaultdict
-from GraphClustering import torch_posterior
+from scipy.special import betaln, gammaln
+from torch.special import gammaln as torch_gammaln
+from torch.distributions import Beta
 
 
 class GraphNet:
     def __init__(self,
                  n_nodes,
-                 a = 1,
-                 b = 1,
-                 alpha = 1,
                  termination_chance=None,
                  env=None,
                  n_layers=2,
@@ -38,7 +36,6 @@ class GraphNet:
         self.n_clusters = n_clusters
         self.batch_size = batch_size
         self.n_nodes = n_nodes
-        self.a, self.b, self.alpha = torch.tensor([a]), torch.tensor([b]), torch.tensor([alpha])
         self.size = (n_nodes, n_nodes)
         self.model_forward = MLP(output_size=1,
                                  n_nodes=n_nodes,
@@ -104,7 +101,7 @@ class GraphNet:
                     if self.is_terminal(x):
                         # Should calculate IRM value of the state:
                         adjacency_matrix, clustering_matrix, _ = self.get_matrices_from_state(x)
-                        backward = torch_posterior(adjacency_matrix, clustering_matrix, a=self.a, b=self.b, alpha=self.alpha)
+                        backward = torch_posterior(adjacency_matrix, clustering_matrix, using_cuda=self.using_cuda)
                     targets[j] = backward
 
                 loss = self.mse_loss(outputs, targets)
@@ -205,7 +202,7 @@ class GraphNet:
             possible_node += 1
         return output
 
-    def get_all_probs(self, adjacency_matrix):
+    def get_all_probs(self, adjacency_matrix, save='AllProbDict.pth'):
         """
         Given an adjacency matrix, calculate the log flow probabilities
         of every possible state from the GFlowNet. Returns a list of
@@ -247,6 +244,8 @@ class GraphNet:
             previous_states = deepcopy(current_states_temp)
             out.append(current_layer_dict)
 
+        if save:
+            torch.save(dict(out[-1]), save)
         return out
 
     def sample_forward(self, adjacency_matrix, epochs=None):
@@ -297,58 +296,6 @@ class GraphNet:
             final_states[epoch] = current_state
 
         return final_states
-    
-    def full_sample_distribution_G(self, log = False):
-        # Warning:
-        """
-        Computes the exact forward sample probabilties
-        for each possible clustering.
-        :param log: (bool) Whether or not to compute the function using log-probabilities. This doesn't work, as we have to sum probabilities for multiple avenues.
-        :return: dictionary of the form {clustering_matrix: probability}
-        """
-        print("Warning: The state representation in this function does not include the last node placed.")
-        print("Warning: Because this function has to sum small probabilities, it will likely experience underflow even for meagre graphs.")
-        print("Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This might take a while.")
- 
-        # Initialize the empty clustering and one-hot vector (source state)
-        clustering_matrix = torch.zeros(self.size)
-        clustering_list = torch.zeros(self.n_nodes)
-        next_states_p = [defaultdict(lambda: 0) for _ in range(self.n_nodes + 1)]
-        state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten())) # Init_state
-        next_states_p[0] = {clustering_list : 1} # Transition to state 0
-        for n_layer in tqdm(range(0, self.n_nodes)):
-            for clustering_list, prob in next_states_p[n_layer].items():
-                if log: prob = torch.log(prob)
-                num_clusters = len(torch.unique(clustering_list))-1
-                clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
-                state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
-                
-                output = self.forward_flow(self, state)
-                # output = torch.zeros((nodes_to_place.size()[0], number_of_clusters))
-                # shape = (nodes left, number of clusters (+1))
-                if not log:
-                    output_prob = output/torch.sum(output)
-                else:
-                    output_prob = torch.log(output) - torch.log(torch.sum(output))
-
-                nodes_to_place, number_of_clusters = output_prob.size()
-
-                nodes_unclustered = torch.argwhere(clustering_list == 0)
-                assert len(nodes_unclustered) == nodes_to_place
-                assert number_of_clusters == num_clusters + 1
-
-                for n, node_index in enumerate(nodes_unclustered):
-                    for c in range(1, number_of_clusters+1):
-                        temp_clustering_list = torch.copy(clustering_list)
-                        temp_clustering_list[node_index] = c
-                        if not log:
-                            next_states_p[n_layer+1][temp_clustering_list] += (prob*output_prob[n,c])
-                        else:
-                            next_states_p[n_layer+1][temp_clustering_list] += torch.exp(prob + output_prob[n,c])
-                
-                assert 0.99 < sum(next_states_p[n_layer+1].values()) < 1.01
-
-
 
 
 #%% Helpers:
@@ -498,42 +445,238 @@ class SimpleBackwardModel:
         return current_nodes / torch.sum(current_nodes)
 
 
-if __name__ == '__main__':
-    import torch
+def p_x_giv_z(A, C, a=1, b=1, log=True):
+    """Calculate P(X|z): the probability of the graph given a particular clustering structure.
+    # This is calculated by integrating out all the internal cluster connection parameters.
 
-    using_cuda = False
-    if torch.cuda.is_available() and using_cuda:
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    adjacency_matrix = torch.ones((5, 5))
-    adjacency_matrix[0, 1], adjacency_matrix[1, 0] = 0, 0
-    adjacency_matrix[0, 3], adjacency_matrix[3, 0] = 0, 0
-    adjacency_matrix[0, 4], adjacency_matrix[4, 0] = 0, 0
+    Parameters
+    ----------
+    A : Adjacency matrix (2D ndarray)
+    C : clustering index array (1D ndarray) (n long with the cluster c of each node ordered by the Adjacency matrix at each index)
+    a and b: float
+        Parameters for the beta distribution prior for the cluster connectivities.
+        a = b = 1 yields a uniform distribution.
+    log : Bool
+        Whether or not to return log of the probability
 
-    net = GraphNet(n_nodes=adjacency_matrix.size()[0], using_cuda=using_cuda, using_backward_model=False)
-    # print(net.assign_clusters(a))
-    bas = SimpleBackwardModel()
-    #
-    clustering_list = torch.tensor([1, 1, 2, 0, 0])
-    clustering_mat = net.get_clustering_matrix(clustering_list, 4)
-    last_node_placed = torch.zeros(5)
-    last_node_placed[3] = 1
-    b = torch.concat((torch.tensor(adjacency_matrix).flatten(), torch.tensor(clustering_mat).flatten(), last_node_placed))
-    # print(net.forward_flow(b))
-    # print(net.log_sum_flows(b))
-    # final_states = net.sample_forward(a, epochs=10)
-    # for state in final_states:
-    #     print(net.get_matrices_from_state(state)[1])
-    # net.train(final_states)
-    # print(p_x_giv_z(adjacency_matrix.detach().numpy(), clustering_list.detach().numpy()))
-    print(torch_posterior(adjacency_matrix, clustering_list, a=net.a, b=net.b, alpha=net.alpha))
-    print(net.forward_flow(b))
-    net.get_all_probs(adjacency_matrix)
-    # print('Placing node:')
-    # b0 = net.place_node(b, 1)
-    # print(net.get_clustering_list(net.get_matrices_from_state(b0)[1]))
-    net.termination_chance = 0
-    X = net.sample_forward(adjacency_matrix=adjacency_matrix)
-    net.train(X)
-    X1 = net.sample_forward(adjacency_matrix=adjacency_matrix)
+    Return
+    ----------
+    Probability of data given clustering: float
+    """
+    np.einsum("ii->i", A)[...] = 0  # This function assumes that nodes aren't connected to themselves. This should be irrelevant for the clustering.
+    # Product over all pairs of components.
+    values, nk = np.unique(C, return_counts=True)
+    # I just need to create m_kl and m_bar_kl matrices. Then I can vectorize the whole thing
 
-    print(net.forward_flow(b))
+    # create node-cluster adjacency matrix
+    n_C = np.identity(C.max() + 1, int)[C]
+    m_kl = n_C.T @ A @ n_C
+
+    np.einsum("ii->i", m_kl)[
+        ...] //= 2  # np.diag(m_kl)[...] //= 2 , but this allows for an in-place update.
+    m_bar_kl = np.outer(nk, nk) - np.diag(nk * (nk + 1) / 2) - m_kl  # The diagonal simplifies to the sum up to nk-1.
+
+    # Alternative to the matrix multiplication. This is a little faster.
+    # Sort A according to the clustering.
+    # boundaries = np.diff(C, prepend=-1).nonzero()[0] # tells me at what index each cluster begins.
+    # out =  np.add.reduceat(np.add.reduceat(A,boundaries,1),boundaries,0) # Basically just the matrix-algebra above.
+
+    logP_x_giv_z = np.sum(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b))
+
+    return logP_x_giv_z if log else np.exp(logP_x_giv_z)
+
+
+def p_z(A, C, alpha=1, log=True):
+    """Probability of clustering.
+
+    Parameters
+    ----------
+    A : Adjacency matrix (2D ndarray)
+    C : clustering index array (ndarray)
+    alpha : float
+        Concentration of clusters.
+    log : Bool
+        Whether or not to return log of the probability
+
+    Return
+    ----------
+    probability of cluster: float
+    """
+
+    # Alpha is the concentration parameter. In theory, this could be different for the different clusters.
+    # A constant concentration corrosponds to the chinese restaurant process.
+    K = np.amax(C)
+    N = len(A)
+    values, nk = np.unique(C,
+                           return_counts=True)  # nk is an array of counts, so the number of elements in each cluster.
+    K_bar = len(values) - K  # number of empty clusters.
+
+    log_labellings = gammaln(K + 1) - gammaln(K - K_bar + 1)
+    A = alpha * K
+
+    # nk (array of number of nodes in each cluster)
+    log_p_z = log_labellings * (gammaln(A) - gammaln(A + N)) * np.sum(gammaln(alpha + nk) - gammaln(alpha))
+
+    return log_p_z if log else np.exp(log_p_z)
+
+
+def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True):
+    # Likelyhood part
+    if a is None:
+        a = torch.ones(1)
+    if b is None:
+        b = torch.ones(1)
+    if alpha is None:
+        alpha = torch.ones(1)
+
+    A = torch.t_copy(A_in)
+    C = torch.t_copy(torch.tensor(C_in, dtype=torch.int32))
+    torch.einsum("ii->i", A)[...] = 0   # Fills the diagonal with zeros.
+    values, nk = torch.unique(C, return_counts=True)
+    n_C = torch.eye(int(C.max()) + 1)[C]
+
+    m_kl = n_C.T @ A @ n_C
+    torch.einsum("ii->i", m_kl)[...] //= 2  # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing.
+
+    m_bar_kl = torch.outer(nk, nk) - torch.diag(nk * (nk + 1) / 2) - m_kl
+
+    print(m_bar_kl.device, m_kl.device)
+
+    if str(a.device)[:4] == 'cuda':
+        a_ = a.detach().cpu().numpy()
+        b_ = b.detach().cpu().numpy()
+        m_kl_ = m_kl.detach().cpu().numpy()
+        m_bar_kl_ = m_bar_kl.detach().cpu().numpy()
+        logP_x_giv_z = torch.tensor(np.sum(betaln(m_kl_ + a_, m_bar_kl_ + b_) - betaln(a_, b_)))
+    else:
+        logP_x_giv_z = torch.sum(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b))
+
+    # Prior part
+    K = torch.amax(C)
+    N = len(A)
+    values, nk = torch.unique(C, return_counts=True)
+    K_bar = len(values) - K  # number of empty clusters.
+
+    log_labellings = torch_gammaln(K + 1) - torch_gammaln(K - K_bar + 1)
+    A = alpha * K
+
+    # nk (array of number of nodes in each cluster)
+    log_p_z = log_labellings * (torch_gammaln(A) - torch_gammaln(A + N)) * torch.sum(torch_gammaln(alpha + nk) - torch_gammaln(alpha))
+
+    # Return joint probability, which is proportional to the posterior
+    return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
+
+
+
+def Cmatrix_to_array(Cmat):
+    C = np.zeros(len(Cmat))
+    cluster = 0
+    for i, row in enumerate(Cmat):  # row = Cmat[i]
+        if np.any(Cmat[i]):
+            C[Cmat[i].astype(bool)] = cluster
+            Cmat[Cmat[i].astype(bool)] = 0 # Remove these clusters
+            cluster += 1
+    return C
+
+
+def ClusterGraph(l, k, p, q):
+    n = l * k
+    adjacency = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+
+            prob = np.random.rand(2)
+
+            if i // k == j // k and prob[0] < p:
+                adjacency[(i, j), (j, i)] = 1
+
+            elif prob[1] < q:
+                adjacency[(i, j), (j, i)] = 1
+
+    return adjacency
+
+
+# Collected function
+def IRM_graph(alpha, a, b, N):
+    clusters = CRP(alpha, N)
+    phis = Phi(clusters, a, b)
+    Adj = Adj_matrix(phis, clusters)
+    return Adj, clusters
+
+
+# Perform Chinese Restaurant Process
+def CRP(alpha, N):
+    # First seating
+    clusters = [[1]]
+    for i in range(2, N + 1):
+        # Calculate cluster assignment as index to the list clusters.
+        p = torch.rand(1)
+        probs = torch.tensor([len(cluster) / (i + alpha - 1) for cluster in clusters])
+        cluster_assignment = sum(torch.cumsum(probs, dim=0) < p)
+
+        # Make new table or assign to current
+        if cluster_assignment == len(clusters):
+            clusters.append([i])
+        else:
+            clusters[cluster_assignment].append(i)
+
+    # Return the cluster sizes
+    return torch.tensor([len(cluster) for cluster in clusters])
+
+
+# Return a symmetric matrix of cluster probabilities,
+# defined by a beta distribution.
+def Phi(clusters, a, b):
+    n = len(clusters)
+    phis = Beta(a, b).rsample((n, n))
+    # Symmetrize
+    for i in range(n - 1, -1, -1):
+        for j in range(n):
+            phis[i, j] = phis[j, i]
+
+    return phis
+
+
+# Helper function to construct block matrix of cluster probabilities.
+def make_block_phis(phis, clusters):
+    for i, ii in enumerate(clusters):
+        for j, jj in enumerate(clusters):
+            if j == 0:
+                A = torch.full((ii, jj), phis[i, j])
+            else:
+                A = torch.hstack((A, torch.full((ii, jj), phis[i, j])))
+
+        if i == 0:
+            block_phis = A
+        else:
+            block_phis = torch.vstack((block_phis, A))
+
+    return block_phis
+
+
+# Construct adjacency matrix.
+def Adj_matrix(phis, clusters):
+    n = sum(clusters)
+    Adj_matrix = torch.zeros((n, n))
+
+    block_phis = make_block_phis(phis, clusters)
+
+    # Iterate over all nodes and cluster probabilities.
+    for i in range(n):
+        for j in range(n):
+            p = torch.rand(1)
+            if p < block_phis[i, j]:
+                Adj_matrix[i, j] = 1
+                Adj_matrix[j, i] = 1
+            else:
+                Adj_matrix[i, j] = 0
+                Adj_matrix[j, i] = 0
+
+    return Adj_matrix
+
+
+def clusterIndex(clusters):
+    idxs = torch.tensor([])
+    for i, k in enumerate(clusters):
+        idxs = torch.cat((idxs, torch.tensor([i] * k)))
+    return idxs
