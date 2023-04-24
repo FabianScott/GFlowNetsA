@@ -1,0 +1,9 @@
+ToDo:
+    - Implement Gibbs sampler
+    - Conduct larger test
+        - Extract the entire distribution
+    - Remove lastnodeplaced
+    - Read Amortized clustering
+        - Think about node-order invariant inputs
+    - Implement log-max
+        - Add constant in log-domain, move to standard and substract when returning to log domain
