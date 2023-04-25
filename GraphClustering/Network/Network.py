@@ -292,7 +292,7 @@ class GraphNet:
 
         return final_states
     
-    def full_sample_distribution_G(self, adjacency_matrix, log = False):
+    def full_sample_distribution_G(self, adjacency_matrix, log = True):
         """
         Computes the exact forward sample probabilties
         for each possible clustering.
@@ -340,9 +340,7 @@ class GraphNet:
                                 next_states_p[n_layer+1][temp_clustering_list] += (prob*output_prob[n,c])
                             else:
                                 next_states_p[n_layer+1][temp_clustering_list] += torch.exp(prob + output_prob[n,c])
-                    
 
-                
                 elif Fabian:
                     for index_chosen, prob in enumerate(output_prob.flatten()):
                         new_state, temp_clustering_list = self.place_node(state, index_chosen, return_clustering_list=True)
