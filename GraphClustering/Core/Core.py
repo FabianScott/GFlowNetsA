@@ -104,7 +104,7 @@ class GraphNet:
                     outputs[j] = forward
                     if self.is_terminal(x):
                         # Should calculate IRM value of the state:
-                        adjacency_matrix, clustering_matrix, _ = self.get_matrices_from_state(x)
+                        adjacency_matrix, clustering_matrix = self.get_matrices_from_state(x)
                         backward = torch_posterior(adjacency_matrix, clustering_matrix, a=self.a, b=self.b,
                                                    alpha=self.alpha)
                     targets[j] = backward
@@ -472,7 +472,7 @@ class GraphNet:
         # Check the diagonal of the clustering matrix using indexing and if the sum == n_nodes it is terminal
 
         return state[::self.n_nodes][self.n_nodes ** 2:2 * (self.n_nodes ** 2)].sum() == self.n_nodes
-    
+
 
 class MLP(nn.Module):
     def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3):
