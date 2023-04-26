@@ -59,7 +59,7 @@ class GraphNet:
         self.optimizer = torch.optim.Adam(itertools.chain(self.model_forward.parameters(), (self.z0,)), lr=self.lr)
         self.using_cuda = using_cuda
         self.using_backward_model = using_backward_model
-        self.state_length = 2 * self.n_nodes ** 2 + self.n_nodes
+        self.state_length = 2 * self.n_nodes ** 2
         self.termination_chance = 0 if termination_chance is None else termination_chance
 
     def create_model(self):
@@ -144,7 +144,7 @@ class GraphNet:
                 forward_log_sum_probs (int), backward_log_sum_probs (int)
         """
         # The terminal_state does encode information about what node was most recently clustered
-        adjacency_matrix, clustering_matrix, last_node_placed = self.get_matrices_from_state(terminal_state)
+        adjacency_matrix, clustering_matrix = self.get_matrices_from_state(terminal_state)
         current_clustering_list, number_of_clusters = self.get_clustering_list(clustering_matrix)
         prob_log_sum_forward = torch.zeros(1)
         # Need IRM to add here, leave out for now
@@ -162,9 +162,7 @@ class GraphNet:
             clustering_matrix[index_chosen] = 0
             clustering_matrix[:, index_chosen] = 0
             # Get the forward flow
-            last_node_placed = torch.zeros(self.n_nodes)
-            last_node_placed[index_chosen] = 1
-            current_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten(), last_node_placed))
+            current_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
             forward_probs = self.forward_flow(current_state)
 
             # Cluster labels are 1-indexed
@@ -187,7 +185,7 @@ class GraphNet:
         """
         # return the forward flow for all possible actions (choosing node, assigning cluster)
         # using the idea that the NN rates each possible future state. Variable output size!!
-        current_adjacency, current_clustering, last_node_placed = self.get_matrices_from_state(state)
+        current_adjacency, current_clustering = self.get_matrices_from_state(state)
         # number of clusters starts at 1
         clustering_list, number_of_clusters = self.get_clustering_list(current_clustering)
         nodes_to_place = torch.argwhere(torch.sum(current_clustering, dim=0) == 0)  # it's symmetrical
@@ -201,7 +199,7 @@ class GraphNet:
                 temp_clustering_list[node_index] = possible_cluster
                 temp_clustering = self.get_clustering_matrix(temp_clustering_list, number_of_clusters)
                 temp_state = torch.concat(
-                    (current_adjacency.flatten(), temp_clustering.flatten(), last_node_placed))
+                    (current_adjacency.flatten(), temp_clustering.flatten()))
 
                 output[possible_node, possible_cluster - 1] = self.model_forward.forward(temp_state)
             possible_node += 1
@@ -222,8 +220,7 @@ class GraphNet:
             return torch.zeros(1)
 
         clustering_matrix = torch.zeros(adjacency_matrix.size())
-        last_node_placed = torch.zeros(self.n_nodes)
-        previous_states = [torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten(), last_node_placed))]
+        previous_states = [torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))]
         # The probability of starting in the staring state is 1
         previous_layer_dict = {previous_states[0]: torch.log(torch.ones(1))}
         out = []
@@ -244,7 +241,9 @@ class GraphNet:
                                                                  return_clustering_list=True)
                     # Use the clustering list as the keys in the dictionary to save space
                     current_states_temp.append(new_state)
-                    current_layer_dict[clustering_list] += log_prob + previous_layer_dict[previous_state]
+                    current_layer_dict[clustering_list] = torch.logaddexp(current_layer_dict[clustering_list],
+                                                                          log_prob + previous_layer_dict[
+                                                                              previous_state])
             # Remember the probabilities from the previous layer
             previous_layer_dict = deepcopy(current_layer_dict)
             previous_states = deepcopy(current_states_temp)
@@ -270,18 +269,17 @@ class GraphNet:
         for epoch in tqdm(range(epochs)):
             # Initialize the empty clustering and one-hot vector
             clustering_matrix = torch.zeros(self.size)
-            last_node_placed = torch.zeros(self.n_nodes)
             clustering_list = torch.zeros(self.n_nodes)
+            start = True
             # Here to ensure an empty state if
             # Each iteration has self.termination_chance of being the last, and we ensure no empty states
-            while not last_node_placed.sum() or (
+            while start or (
                     torch.rand(1) >= self.termination_chance and torch.sum(clustering_list > 0) != self.n_nodes):
+                start = False
                 # Create the state vector and pass it to the NN
                 current_state = torch.concat(
-                    (adjacency_matrix.flatten(), clustering_matrix.flatten(), last_node_placed))
+                    (adjacency_matrix.flatten(), clustering_matrix.flatten()))
                 clustering_list, num_clusters = self.get_clustering_list(clustering_matrix)
-                # Reset last node placed after use
-                last_node_placed = torch.zeros(self.n_nodes)
                 forward_flows = self.forward_flow(current_state)
                 forward_probs = self.softmax_matrix(forward_flows).flatten()
                 # Sample from the output and retrieve the indices of the chosen node and clustering
@@ -296,13 +294,12 @@ class GraphNet:
                 # Labels are 1-indexed, indices are 0 indexed
                 clustering_list[node_chosen] = torch.tensor(cluster_index_chosen + 1, dtype=torch.float32)
                 clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
-                last_node_placed[node_chosen] = 1
 
             final_states[epoch] = current_state
 
         return final_states
 
-    def full_sample_distribution_G(self, adjacency_matrix, log = True):
+    def full_sample_distribution_G(self, adjacency_matrix, log=True):
         """
         Computes the exact forward sample probabilties
         for each possible clustering.
@@ -310,8 +307,10 @@ class GraphNet:
         :return: dictionary of the form {clustering_matrix: probability}
         """
         print("Warning: The state representation in this function does not include the last node placed.")
-        print("Warning: Because this function has to sum small probabilities, it will likely experience underflow even for meagre graphs.")
-        print("Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This might take a while.")
+        print(
+            "Warning: Because this function has to sum small probabilities, it will likely experience underflow even for meagre graphs.")
+        print(
+            "Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This might take a while.")
         from copy import deepcopy
         from collections import defaultdict
 
@@ -319,20 +318,20 @@ class GraphNet:
         clustering_matrix = torch.zeros(self.size)
         clustering_list = torch.zeros(self.n_nodes)
         next_states_p = [defaultdict(lambda: 0) for _ in range(self.n_nodes + 1)]
-        state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten())) # Init_state
-        next_states_p[0] = {clustering_list : 1} # Transition to state 0
+        state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))  # Init_state
+        next_states_p[0] = {clustering_list: 1}  # Transition to state 0
         for n_layer in tqdm(range(0, self.n_nodes)):
             for clustering_list, prob in next_states_p[n_layer].items():
                 prob = torch.log(torch.tensor(prob)) if log else torch.tensor(prob)
-                num_clusters = len(torch.unique(clustering_list))-1
+                num_clusters = len(torch.unique(clustering_list)) - 1
                 clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
                 state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
-                
-                output = self.forward_flow(state)
+
+                output = self.forward_flow(self, state)
                 # output = torch.zeros((nodes_to_place.size()[0], number_of_clusters))
                 # shape = (nodes left, number of clusters (+1))
                 if not log:
-                    output_prob = (output/torch.sum(output))
+                    output_prob = (output / torch.sum(output))
                 else:
                     output_prob = (torch.log(output) - torch.log(torch.sum(output)))
                 Fabian = False
@@ -343,23 +342,25 @@ class GraphNet:
                     assert number_of_clusters == num_clusters + 1
 
                     for n, node_index in enumerate(nodes_unclustered):
-                        for c in range(1, number_of_clusters+1):
+                        for c in range(1, number_of_clusters + 1):
                             temp_clustering_list = deepcopy(clustering_list)
                             temp_clustering_list[node_index] = c
                             if not log:
-                                next_states_p[n_layer+1][temp_clustering_list] += (prob*output_prob[n,c])
+                                next_states_p[n_layer + 1][temp_clustering_list] += (prob * output_prob[n, c])
                             else:
-                                next_states_p[n_layer+1][temp_clustering_list] += torch.exp(prob + output_prob[n,c])
+                                next_states_p[n_layer + 1][temp_clustering_list] += torch.exp(prob + output_prob[n, c])
 
                 elif Fabian:
                     for index_chosen, prob in enumerate(output_prob.flatten()):
-                        new_state, temp_clustering_list = self.place_node(state, index_chosen, return_clustering_list=True)
+                        new_state, temp_clustering_list = self.place_node(state, index_chosen,
+                                                                          return_clustering_list=True)
                         # Use the clustering list as the keys in the dictionary to save space
                         if not log:
-                            next_states_p[n_layer+1][temp_clustering_list] += (prob*output_prob[n,c])
+                            next_states_p[n_layer + 1][temp_clustering_list] += (prob * output_prob[n, c])
                         else:
-                            next_states_p[n_layer+1][temp_clustering_list] = torch.logaddexp(next_states_p[n_layer+1][temp_clustering_list], prob + output_prob[n,c])
-            assert 0.9 < torch.logsumexp(next_states_p[n_layer+1].values()) < 1.1
+                            next_states_p[n_layer + 1][temp_clustering_list] = torch.logaddexp(
+                                next_states_p[n_layer + 1][temp_clustering_list], prob + output_prob[n, c])
+            assert 0.9 < torch.logsumexp(next_states_p[n_layer + 1].values()) < 1.1
         return next_states_p
 
     # %% Helpers:
@@ -417,13 +418,13 @@ class GraphNet:
         Given a state vector of the size the class is initialized with, return the
         different parts as matrices and vectors
         :param state: vector (2 * n_nodes ^ 2 + n_nodes)
-        :return: adjacency matrix and clustering matrix (n_nodes, n_nodes), last node placed (n_nodes,)
+        :return: adjacency matrix and clustering matrix (n_nodes, n_nodes)
         """
-        # returns the adjacency matrix, clustering matrix and one-hot vector of the last node placed into the graph
+        # returns the adjacency matrix, clustering matrix
         l = self.n_nodes ** 2
         size = self.size
         current_adjacency, current_clustering = torch.reshape(state[:l], size), torch.reshape(state[l:2 * l], size)
-        return current_adjacency, current_clustering, state[2 * l:]
+        return current_adjacency, current_clustering
 
     def place_node(self, state, index_chosen: int, return_clustering_list=False):
         """
@@ -436,7 +437,7 @@ class GraphNet:
         :param return_clustering_list:
         :return: new_state:
         """
-        adjacency_matrix, clustering_matrix, last_node_placed = self.get_matrices_from_state(state)
+        adjacency_matrix, clustering_matrix = self.get_matrices_from_state(state)
         clustering_list, num_clusters = self.get_clustering_list(clustering_matrix)
 
         node_chosen = index_chosen // num_clusters
@@ -448,7 +449,7 @@ class GraphNet:
         # Labels are 1-indexed, indices are 0 indexed
         clustering_list[node_chosen] = torch.tensor(cluster_index_chosen + 1, dtype=torch.float32)
         clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
-        new_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten(), last_node_placed))
+        new_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
         if return_clustering_list:
             return new_state, clustering_list
         return new_state
@@ -471,6 +472,7 @@ class GraphNet:
         # Check the diagonal of the clustering matrix using indexing and if the sum == n_nodes it is terminal
 
         return state[::self.n_nodes][self.n_nodes ** 2:2 * (self.n_nodes ** 2)].sum() == self.n_nodes
+    
 
 class MLP(nn.Module):
     def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3):

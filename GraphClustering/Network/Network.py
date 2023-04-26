@@ -57,7 +57,7 @@ class GraphNet:
         self.optimizer = torch.optim.Adam(itertools.chain(self.model_forward.parameters(), (self.z0,)), lr=self.lr)
         self.using_cuda = using_cuda
         self.using_backward_model = using_backward_model
-        self.state_length = 2 * self.n_nodes ** 2 + self.n_nodes
+        self.state_length = 2 * self.n_nodes ** 2
         self.termination_chance = 0 if termination_chance is None else termination_chance
 
     def create_model(self):
