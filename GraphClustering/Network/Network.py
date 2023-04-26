@@ -102,7 +102,7 @@ class GraphNet:
                     outputs[j] = forward
                     if self.is_terminal(x):
                         # Should calculate IRM value of the state:
-                        adjacency_matrix, clustering_matrix, _ = self.get_matrices_from_state(x)
+                        adjacency_matrix, clustering_matrix = self.get_matrices_from_state(x)
                         backward = torch_posterior(adjacency_matrix, clustering_matrix, a=self.a, b=self.b, alpha=self.alpha)
                     targets[j] = backward
 
