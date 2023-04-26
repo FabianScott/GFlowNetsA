@@ -22,14 +22,26 @@ except: # Do not change this if it is unnecessary for you. Directly picking the 
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
 
+def count_links(node_idx, adjacency_matrix, cluster_idxs):
+
+    return m_bar, r_bar
+
 def gibbsSampler(N, graph, alpha):
+    n_nodes = len(graph[0])
+    clusters = []
+    for i in range(N):
+        clusters.append([0])
+        for j, node in enumerate(np.permutation(n_nodes)):
+            p_zk = np.array([clusters[-1].count(cluster) for cluster in set(clusters[-1])]+[alpha])
+            p_zk /= sum(p_zk)
 
-    clusters = [0]
-    for i in range(N)
-        p_zk = np.array([clusters.count(cluster) for cluster in set(clusters)]+[alpha])
-        p_zk /= sum(p_zk)
+            []
 
-        
+
+
+
+
+
 
 if __name__ == '__main__':
 
