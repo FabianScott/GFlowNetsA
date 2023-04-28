@@ -478,7 +478,7 @@ class MLP(nn.Module):
     def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3):
         super().__init__()
         # takes adj_mat, clustering_mat, one-hot node_placed
-        input_size = int(2 * n_nodes ** 2 + n_nodes)
+        input_size = int(2 * n_nodes ** 2)
         self.n_clusters = n_clusters
         # Forward and backward layers
         self.layers = nn.ModuleList()
