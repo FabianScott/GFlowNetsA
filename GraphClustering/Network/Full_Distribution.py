@@ -115,6 +115,7 @@ def fix_net_clusters(cluster_prob_dict, clusters_all, log = True):
     assert -0.1 < torch.logsumexp(net_posteriors, (0)) < 0.1
     return net_posteriors
 
+
 if __name__ == '__main__':
     N =  3
     a, b, alpha = 0.5, 0.5, 3
@@ -179,27 +180,27 @@ if __name__ == '__main__':
 
     N_samples = 1000
     if N_samples:
-
+        clusters_all_tensor = torch.tensor(clusters_all+1)
         X1 = net.sample_forward(adjacency_matrix=adjacency_matrix, epochs= N_samples)
 
-        posttrain_clusterings = torch.zeros()
-        posteriors = torch.zeros(N_samples)
-        av_post_posttrain = 0
+        sample_posterior_counts = torch.zeros(len(clusters_all))
 
         for x in X1:
-            posttrain_clusterings.append(net.get_matrices_from_state(x)[1])
-            posteriors.append(torch_posterior(A_random, net.get_clustering_list(posttrain_clusterings[-1])[0],
-                                                a=torch.ones(1), b=torch.ones(1), alpha = 1, log=True))
-        av_post_posttrain = torch.mean(torch.FloatTensor(posteriors)) 
-        best_clustering = net.get_clustering_list(posttrain_clusterings[torch.argmax(torch.FloatTensor(posteriors))]) 
-        print(best_clustering)
-        c_idxs = torch.argsort(best_clustering[0])    
+            x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
 
+            cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor, x_c_list), dim=1) == 1)[0][0] 
+            sample_posterior_counts[cluster_ind] += 1
+
+        sample_posterior_probs = sample_posterior_counts/torch.sum(sample_posterior_counts)
+        if log:
+            sample_posterior_probs = torch.log(sample_posterior_probs)
+            assert -0.1 < torch.logsumexp(sample_posterior_counts, (0)) < 0.1
 
     f = plt.figure()
     plt.title('Cluster Posterior Probabilites by Magnitude:\nExact and extracted from network')
     plt.plot(cluster_post[sort_idx], "bo")
     plt.plot(net_posteriors_numpy[sort_idx], "rx")
+    plt.plot(sample_posterior_probs[sort_idx], "go")
     plt.xlabel("Sorted Cluster Index")
     plt.ylabel("Posterior Probability")
     plt.legend(["Exact values", "From Network"])
