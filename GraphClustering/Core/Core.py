@@ -317,50 +317,44 @@ class GraphNet:
         # Initialize the empty clustering and one-hot vector (source state)
         clustering_matrix = torch.zeros(self.size)
         clustering_list = torch.zeros(self.n_nodes)
-        next_states_p = [defaultdict(lambda: 0) for _ in range(self.n_nodes + 1)]
+        next_states_p = [defaultdict(lambda: 0) for _ in range(self.n_nodes + 1)] # Must be overwritten in the case of log, as log(0) isn't defined. 
         state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))  # Init_state
-        next_states_p[0] = {clustering_list: 1}  # Transition to state 0
+        prob_init = 0 if log else 1
+        next_states_p[0] = {clustering_list: prob_init}  # Transition to state 0
         for n_layer in tqdm(range(0, self.n_nodes)):
             for clustering_list, prob in next_states_p[n_layer].items():
-                prob = torch.log(torch.tensor(prob)) if log else torch.tensor(prob)
                 num_clusters = len(torch.unique(clustering_list)) - 1
                 clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
                 state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
 
-                output = self.forward_flow(self, state)
+                output = self.forward_flow(state)
                 # output = torch.zeros((nodes_to_place.size()[0], number_of_clusters))
                 # shape = (nodes left, number of clusters (+1))
-                if not log:
-                    output_prob = (output / torch.sum(output))
-                else:
-                    output_prob = (torch.log(output) - torch.log(torch.sum(output)))
-                Fabian = False
+                Fabian = True # Er det softmax eller er det ikke. 
                 if not Fabian:
-                    nodes_to_place, number_of_clusters = output_prob.size()
-                    nodes_unclustered = torch.argwhere(clustering_list == 0)[0]
-                    assert len(nodes_unclustered) == nodes_to_place
-                    assert number_of_clusters == num_clusters + 1
+                    if not log: output_prob = (output / torch.sum(output)) 
+                    else: output_prob = (torch.log(output) - torch.log(torch.sum(output)))
+                else:
+                    if not log: output_prob = self.softmax_matrix(output)
+                    else: output_prob = torch.log(self.softmax_matrix(output))
 
-                    for n, node_index in enumerate(nodes_unclustered):
-                        for c in range(1, number_of_clusters + 1):
-                            temp_clustering_list = deepcopy(clustering_list)
-                            temp_clustering_list[node_index] = c
-                            if not log:
-                                next_states_p[n_layer + 1][temp_clustering_list] += (prob * output_prob[n, c])
-                            else:
-                                next_states_p[n_layer + 1][temp_clustering_list] += torch.exp(prob + output_prob[n, c])
-
-                elif Fabian:
-                    for index_chosen, prob in enumerate(output_prob.flatten()):
-                        new_state, temp_clustering_list = self.place_node(state, index_chosen,
-                                                                          return_clustering_list=True)
-                        # Use the clustering list as the keys in the dictionary to save space
-                        if not log:
-                            next_states_p[n_layer + 1][temp_clustering_list] += (prob * output_prob[n, c])
+                for index_chosen, next_prob in enumerate(output_prob.flatten()):
+                    new_state, temp_clustering_list = self.place_node(state, index_chosen,
+                                                                        return_clustering_list=True) # This ends up representing identical clusterings differently. We fix that.
+                    temp_num_clusters = max(num_clusters, 1 + (index_chosen%(num_clusters+1))) # Just a clever way of figuring out how many clusters there are because I am being cheeky.
+                    clustering_matrix = self.get_clustering_matrix(temp_clustering_list, temp_num_clusters) # We could rewrite this function to not need the number of clusters
+                    temp_clustering_list = self.get_clustering_list(clustering_matrix)[0] 
+                    # Use the clustering list as the keys in the dictionary to save space
+                    if not log:
+                        next_states_p[n_layer + 1][temp_clustering_list] += (prob * next_prob)
+                    else:
+                        if next_states_p[n_layer + 1].get(temp_clustering_list, 0) == 0:
+                            next_states_p[n_layer + 1][temp_clustering_list] = prob + next_prob # Initialize the value. 
                         else:
+                            # There are some funny issues here with not being able to use tensors as keys.
                             next_states_p[n_layer + 1][temp_clustering_list] = torch.logaddexp(
-                                next_states_p[n_layer + 1][temp_clustering_list], prob + output_prob[n, c])
-            assert 0.9 < torch.logsumexp(next_states_p[n_layer + 1].values()) < 1.1
+                                next_states_p[n_layer + 1][temp_clustering_list], prob + next_prob)
+            assert -0.1 < torch.logsumexp(torch.tensor(list(next_states_p[n_layer + 1].values())), (0)) < 0.1
         return next_states_p
 
     # %% Helpers:
