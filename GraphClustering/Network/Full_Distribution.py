@@ -116,7 +116,7 @@ def fix_net_clusters(cluster_prob_dict, clusters_all, log = True):
     return net_posteriors
 
 if __name__ == '__main__':
-    N =  4
+    N =  3
     a, b, alpha = 0.5, 0.5, 3
     log = True
     seed = 43
@@ -168,11 +168,34 @@ if __name__ == '__main__':
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
     X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
     net.train(X, epochs=100)
-    cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix = A_random, log = log)
-    # print(cluster_prob_dict) # Here there is the significant problem of cleaning up the dictionary, since tensors are mutable and constitue unique keys.
+    
+    exact = False
+    if exact:
+        cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix = A_random, log = log)
+        # print(cluster_prob_dict) # Here there is the significant problem of cleaning up the dictionary, since tensors are mutable and constitue unique keys.
 
-    net_posteriors = fix_net_clusters(cluster_prob_dict, clusters_all, log = log)
-    net_posteriors_numpy = net_posteriors.detach().numpy()
+        net_posteriors = fix_net_clusters(cluster_prob_dict, clusters_all, log = log)
+        net_posteriors_numpy = net_posteriors.detach().numpy()
+
+    N_samples = 1000
+    if N_samples:
+
+        X1 = net.sample_forward(adjacency_matrix=adjacency_matrix, epochs= N_samples)
+
+        posttrain_clusterings = torch.zeros()
+        posteriors = torch.zeros(N_samples)
+        av_post_posttrain = 0
+
+        for x in X1:
+            posttrain_clusterings.append(net.get_matrices_from_state(x)[1])
+            posteriors.append(torch_posterior(A_random, net.get_clustering_list(posttrain_clusterings[-1])[0],
+                                                a=torch.ones(1), b=torch.ones(1), alpha = 1, log=True))
+        av_post_posttrain = torch.mean(torch.FloatTensor(posteriors)) 
+        best_clustering = net.get_clustering_list(posttrain_clusterings[torch.argmax(torch.FloatTensor(posteriors))]) 
+        print(best_clustering)
+        c_idxs = torch.argsort(best_clustering[0])    
+
+
     f = plt.figure()
     plt.title('Cluster Posterior Probabilites by Magnitude: Exact and extracted from network')
     plt.plot(cluster_post[sort_idx], "bo")
