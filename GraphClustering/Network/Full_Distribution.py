@@ -207,6 +207,7 @@ if __name__ == '__main__':
     plt.xlabel("Sorted Cluster Index")
     plt.ylabel("Posterior Probability")
     plt.legend(["Exact values", "From Network"])
+    plt.ylim(0, -5)
     plt.tight_layout()
     plt.show()
 
