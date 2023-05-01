@@ -123,20 +123,22 @@ if __name__ == '__main__':
     N =  3
     a, b, alpha = 0.5, 0.5, 3
     log = True
-    seed = 43
+    seed = 46
     adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, alpha, log, seed)
 
+    print(cluster_idxs)
     plt.figure()
     plt.imshow(adjacency_matrix)
     plt.show()
-    print(cluster_idxs)
-
+    # sys.exit()
+    
     A_random, idxs, cluster_random, cluster_num = scramble_graph(adjacency_matrix, clustering = cluster_idxs, seed = 42)
     
+    print(cluster_random)
     plt.figure()
     plt.imshow(A_random)
     plt.show()
-    print(cluster_random)
+    
 
     clusters_all = allPermutations(N)
     cluster_post = allPosteriors(N, a, b, alpha, log, joint = False)
@@ -184,7 +186,7 @@ if __name__ == '__main__':
     N_samples = 1000
     if N_samples:
         clusters_all_tensor = torch.tensor(clusters_all+1)
-        X1 = net.sample_forward(adjacency_matrix=adjacency_matrix, epochs= N_samples)
+        X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
 
         sample_posterior_counts = torch.zeros(len(clusters_all))
 

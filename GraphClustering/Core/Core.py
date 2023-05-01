@@ -589,7 +589,7 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose = 
         alpha = torch.ones(1)
 
     A = torch.t_copy(A_in)
-    C = torch.t_copy(torch.tensor(C_in, dtype=torch.int32))
+    C = torch.t_copy(torch.tensor(C_in, dtype=torch.int64))
     torch.einsum("ii->i", A)[...] = 0   # Fills the diagonal with zeros.
     values, nk = torch.unique(C, return_counts=True)
     n_C = torch.eye(int(C.max()) + 1)[C]
