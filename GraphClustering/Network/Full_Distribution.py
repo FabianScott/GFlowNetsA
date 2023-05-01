@@ -174,11 +174,13 @@ if __name__ == '__main__':
     net_posteriors = fix_net_clusters(cluster_prob_dict, clusters_all, log = log)
     net_posteriors_numpy = net_posteriors.detach().numpy()
     f = plt.figure()
-    plt.title('Cluster Posterior Probabilites by Magnitude: Exact and extracted from network')
+    plt.title('Cluster Posterior Probabilites by Magnitude:\nExact and extracted from network')
     plt.plot(cluster_post[sort_idx], "bo")
     plt.plot(net_posteriors_numpy[sort_idx], "rx")
     plt.xlabel("Sorted Cluster Index")
     plt.ylabel("Posterior Probability")
+    plt.legend(["Exact values", "From Network"])
+    plt.tight_layout()
     plt.show()
 
 
