@@ -115,6 +115,9 @@ def fix_net_clusters(cluster_prob_dict, clusters_all, log = True):
     assert -0.1 < torch.logsumexp(net_posteriors, (0)) < 0.1
     return net_posteriors
 
+def clusters_all_index(clusters_all_tensor, specific_cluster_list):
+    cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor, specific_cluster_list), dim=1) == 1)[0][0]
+    return cluster_ind
 
 if __name__ == '__main__':
     N =  3
@@ -187,7 +190,7 @@ if __name__ == '__main__':
 
         for x in X1:
             x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
-
+        
             cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor, x_c_list), dim=1) == 1)[0][0] 
             sample_posterior_counts[cluster_ind] += 1
 
