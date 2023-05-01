@@ -270,15 +270,13 @@ class GraphNet:
             # Initialize the empty clustering and one-hot vector
             clustering_matrix = torch.zeros(self.size)
             clustering_list = torch.zeros(self.n_nodes)
+            current_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
             start = True
-            # Here to ensure an empty state if
             # Each iteration has self.termination_chance of being the last, and we ensure no empty states
             while start or (
                     torch.rand(1) >= self.termination_chance and torch.sum(clustering_list > 0) != self.n_nodes):
                 start = False
-                # Create the state vector and pass it to the NN
-                current_state = torch.concat(
-                    (adjacency_matrix.flatten(), clustering_matrix.flatten()))
+                # Pass the state vector to the NN
                 clustering_list, num_clusters = self.get_clustering_list(clustering_matrix)
                 forward_flows = self.forward_flow(current_state)
                 forward_probs = self.softmax_matrix(forward_flows).flatten()
@@ -294,9 +292,9 @@ class GraphNet:
                 # Labels are 1-indexed, indices are 0 indexed
                 clustering_list[node_chosen] = torch.tensor(cluster_index_chosen + 1, dtype=torch.float32)
                 clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
+                current_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
 
             final_states[epoch] = current_state
-
         return final_states
 
     def full_sample_distribution_G(self, adjacency_matrix, log=True):
