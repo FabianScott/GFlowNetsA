@@ -87,16 +87,17 @@ def create_graph(N, a, b, alpha, log = True, seed = 42):
     clusters = len(clusters)
     return adjacency_matrix, cluster_idxs, clusters
 
-def scramble_graph(adjacency_matrix, clustering = None, seed = 42):
+def scramble_graph(adjacency_matrix, clustering_list = None, seed = 42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     N = adjacency_matrix.size()[0]    
     idxs = torch.randperm(N, dtype=torch.int64)
     A_random = adjacency_matrix[idxs][:, idxs]
-    if clustering is None: return A_random, idxs
+    if clustering_list is None: return A_random, idxs
     else:
         # This makes sure to represent the cluster in the correct format despite the clustering array being permuted. 
-        clustering_matrix = get_clustering_matrix(torch.tensor(cluster_idxs+1), torch.tensor(clusters))
+        N_clusters = len(torch.unique(clustering_list))
+        clustering_matrix = get_clustering_matrix(clustering_list.clone().detach()+1, torch.tensor(N_clusters))
         cluster_random, cluster_num = get_clustering_list(clustering_matrix[idxs][:, idxs]) 
         return A_random, idxs, cluster_random, cluster_num
 
@@ -132,9 +133,9 @@ if __name__ == '__main__':
     plt.show()
     # sys.exit()
     
-    A_random, idxs, cluster_random, cluster_num = scramble_graph(adjacency_matrix, clustering = cluster_idxs, seed = 42)
+    A_random, idxs, cluster_random, cluster_num = scramble_graph(adjacency_matrix, clustering_list = cluster_idxs, seed = 42)
     
-    print(cluster_random)
+    print(cluster_random-1)
     plt.figure()
     plt.imshow(A_random)
     plt.show()
@@ -142,8 +143,8 @@ if __name__ == '__main__':
 
     clusters_all = allPermutations(N)
     cluster_post = allPosteriors(N, a, b, alpha, log, joint = False)
-    print(cluster_post)
-    print(allPosteriors(N, a, b, alpha, log = False, joint = False))
+    print("Log Probabilities: ", cluster_post)
+    print("Probabilities: ", allPosteriors(N, a, b, alpha, log = False, joint = False))
     print(clusters_all)
     
     f = plt.figure()
@@ -153,15 +154,8 @@ if __name__ == '__main__':
     plt.ylabel("Posterior Probability")
     plt.show()
 
-    sort_idx = np.argsort(cluster_post)
-    print(clusters_all[sort_idx])
-    f = plt.figure()
-    plt.title('Cluster Posterior Probabilites by Magnitude')
-    plt.plot(cluster_post[sort_idx], "o")
-    plt.xlabel("Sorted Cluster Index")
-    plt.ylabel("Posterior Probability")
-    plt.show()
 
+    sort_idx = np.argsort(cluster_post)
     # Results
     top = 10
     print("Total possible clusters: "+str(len(sort_idx)))
@@ -170,12 +164,19 @@ if __name__ == '__main__':
     for i, idx in enumerate(np.flip(sort_idx)[:top]):
         print(str(i+1)+": "+str(clusters_all[idx]))
 
+    f = plt.figure()
+    plt.title('Cluster Posterior Probabilites by Magnitude')
+    plt.plot(cluster_post[sort_idx], "o")
+    plt.xlabel("Sorted Cluster Index")
+    plt.ylabel("Posterior Probability")
+    plt.show()
+
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
     X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
-    net.train(X, epochs=100)
+    net.train(X, epochs=100) # This is the time consuming part. 
     
-    exact = False
+    exact = True
     if exact:
         cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix = A_random, log = log)
         # print(cluster_prob_dict) # Here there is the significant problem of cleaning up the dictionary, since tensors are mutable and constitue unique keys.
@@ -204,13 +205,25 @@ if __name__ == '__main__':
 
     
     f = plt.figure()
-    plt.title('Cluster Posterior Probabilites by Magnitude:\nExact and extracted from network')
+    plt.title('Cluster Posterior Log Probabilites by Magnitude:\nExact and extracted from network')
     plt.plot(cluster_post[sort_idx], "bo")
-    if exact: plt.plot(net_posteriors_numpy[sort_idx], "rx")
+    if exact: plt.plot(net_posteriors_numpy[sort_idx], "ro", markersize=4)
     if N_samples: plt.plot(sample_posteriors_numpy[sort_idx], "gx")
     plt.xlabel("Sorted Cluster Index")
     plt.ylabel("Posterior Probability")
-    plt.legend(["Exact values", "From Network"])
+    plt.legend(["Exact values", "From Network", "Sampled Empirically"])
+    # plt.ylim(0, -5)
+    plt.tight_layout()
+    plt.show()
+
+    f = plt.figure()
+    plt.title('Cluster Posterior Probabilites by Magnitude:\nExact and extracted from network')
+    plt.plot(np.exp(cluster_post[sort_idx]), "bo")
+    if exact: plt.plot(np.exp(net_posteriors_numpy[sort_idx]), "ro", markersize=4)
+    if N_samples: plt.plot(np.exp(sample_posteriors_numpy[sort_idx]), "gx")
+    plt.xlabel("Sorted Cluster Index")
+    plt.ylabel("Posterior Probability")
+    plt.legend(["Exact values", "From Network", "Sampled Empirically"])
     # plt.ylim(0, -5)
     plt.tight_layout()
     plt.show()

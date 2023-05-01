@@ -578,6 +578,30 @@ def p_z(A, C, alpha=1, log=True):
 
 
 def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose = False):
+    """Calculate P(X,z): the joint probability of the graph and a particular clustering structure. This is proportional to the posterior.
+    # This is calculated by integrating out all the internal cluster connection parameters.
+
+    Parameters
+    ----------
+    A : Adjacency matrix (2D ndarray)
+    C : clustering index array (1D ndarray) (n long with the cluster c of each node ordered by the Adjacency matrix at each index)
+        Importantly it is 0 indexed! (Write to me if I should change this. We should be consistent on this, and it is probably best to keep 0 as unclustered)
+    a and b: float
+        Parameters for the beta distribution prior for the cluster connectivities.
+        a = b = 1 yields a uniform distribution.
+    alpha : float
+        Concentration of clusters.
+    log : Bool
+        Whether or not to return log of the probability
+    verbose: Bool
+        Whether or not to return the part of the computer this computation is computed on.
+
+    Return
+    ----------
+    Probability of data and clustering: float
+    """
+    assert 0 in C_in # All nodes should be clustered and the clusters should be 0-indexed. 0 must be in C_in. # We really should decide on one standard here.
+
     # Likelyhood part
     if a is None:
         a = torch.ones(1)
@@ -608,17 +632,17 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose = 
     else:
         logP_x_giv_z = torch.sum(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b))
 
-    # Prior part
-    K = torch.amax(C)
+    # Prior part. P(z|K), så given K possible labellings.
     N = len(A)
+    K = torch.tensor(N) # The maximum number of possible labellings. This way it is consistent through all clusterings. 
     # values, nk = torch.unique(C, return_counts=True)
-    K_bar = len(values) - K  # number of non-empty clusters.
+    K_bar = len(values) # number of non-empty clusters.
 
     log_labellings = torch_gammaln(K + 1) - torch_gammaln(K - K_bar + 1)
     A = alpha * K
 
     # nk (array of number of nodes in each cluster)
-    log_p_z = log_labellings * (torch_gammaln(A) - torch_gammaln(A + N)) * torch.sum(torch_gammaln(alpha + nk) - torch_gammaln(alpha))
+    log_p_z = log_labellings + (torch_gammaln(A) - torch_gammaln(A + N)) + torch.sum(torch_gammaln(alpha + nk) - torch_gammaln(alpha))
 
     # Return joint probability, which is proportional to the posterior
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
