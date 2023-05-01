@@ -174,7 +174,7 @@ if __name__ == '__main__':
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
     X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
-    net.train(X, epochs=100) # This is the time consuming part. 
+    net.train(X, epochs=1000) # This is the time consuming part. 
     
     exact = True
     if exact:
