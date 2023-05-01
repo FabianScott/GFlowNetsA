@@ -274,7 +274,7 @@ class GraphNet:
             # Here to ensure an empty state if
             # Each iteration has self.termination_chance of being the last, and we ensure no empty states
             while start or (
-                    torch.rand(1) >= self.termination_chance and torch.sum(clustering_list > 0) != self.n_nodes):
+                    torch.rand(1) >= self.termination_chance and torch.sum(clustering_list > 0) != self.n_nodes + 1):
                 start = False
                 # Create the state vector and pass it to the NN
                 current_state = torch.concat(
