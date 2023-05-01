@@ -611,8 +611,8 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose = 
     # Prior part
     K = torch.amax(C)
     N = len(A)
-    values, nk = torch.unique(C, return_counts=True)
-    K_bar = len(values) - K  # number of empty clusters.
+    # values, nk = torch.unique(C, return_counts=True)
+    K_bar = len(values) - K  # number of non-empty clusters.
 
     log_labellings = torch_gammaln(K + 1) - torch_gammaln(K - K_bar + 1)
     A = alpha * K

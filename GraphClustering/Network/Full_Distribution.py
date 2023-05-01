@@ -71,7 +71,7 @@ def allPosteriors(N, a, b, alpha, log, joint = False):
     Bell = len(clusters_all)
     clusters_all_post = np.zeros(Bell)
     for i, cluster in enumerate(clusters_all):
-        posterior = (torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b), alpha = torch.tensor(alpha), log= True))
+        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b), alpha = torch.tensor(alpha), log= True)
         clusters_all_post[i] = posterior
     if joint: return clusters_all_post # Return the joint probability instead of normalizing.
     cluster_post = clusters_all_post - logsumexp(clusters_all_post) # Normalize them into proper log probabilities
@@ -193,23 +193,25 @@ if __name__ == '__main__':
         for x in X1:
             x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
         
-            cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor, x_c_list), dim=1) == 1)[0][0] 
+            cluster_ind = clusters_all_index(clusters_all_tensor, specific_cluster_list = x_c_list)
             sample_posterior_counts[cluster_ind] += 1
 
         sample_posterior_probs = sample_posterior_counts/torch.sum(sample_posterior_counts)
         if log:
             sample_posterior_probs = torch.log(sample_posterior_probs)
-            assert -0.1 < torch.logsumexp(sample_posterior_counts, (0)) < 0.1
+            assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
+        sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
 
+    
     f = plt.figure()
     plt.title('Cluster Posterior Probabilites by Magnitude:\nExact and extracted from network')
     plt.plot(cluster_post[sort_idx], "bo")
-    plt.plot(net_posteriors_numpy[sort_idx], "rx")
-    plt.plot(sample_posterior_probs[sort_idx], "go")
+    if exact: plt.plot(net_posteriors_numpy[sort_idx], "rx")
+    if N_samples: plt.plot(sample_posteriors_numpy[sort_idx], "gx")
     plt.xlabel("Sorted Cluster Index")
     plt.ylabel("Posterior Probability")
     plt.legend(["Exact values", "From Network"])
-    plt.ylim(0, -5)
+    # plt.ylim(0, -5)
     plt.tight_layout()
     plt.show()
 
