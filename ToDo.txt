@@ -9,3 +9,4 @@ ToDo:
     - New symmetric data inputs. Simple variant: count number of edges. 
     - Test Z0 (Total flow).
     - Opdateret projektbeskrivelse + Gantt chart
+    - Skriv på logbogen...
