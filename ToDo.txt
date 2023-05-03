@@ -7,4 +7,5 @@ ToDo:
     - Look at changes in the loss function. 
     - Look at the -np.inf exact posteior value. Check prior (Gabriel)
     - New symmetric data inputs. Simple variant: count number of edges. 
-    - Test Z0 (Total flow).  
+    - Test Z0 (Total flow).
+    - Opdateret projektbeskrivelse + Gantt chart
