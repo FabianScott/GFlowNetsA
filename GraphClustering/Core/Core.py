@@ -71,7 +71,7 @@ class GraphNet:
         # net = nn.Module()
         return MLP(n_hidden=self.n_hidden, n_clusters=self.n_clusters, n_layers=self.n_layers, output_size=1)
 
-    def train(self, X, Y=None, epochs=100, batch_size=None):
+    def train(self, X, Y=None, epochs=100, batch_size=None, verbose=False):
         """
         Given an iterable of final states and a number of epochs, train the
         network.
@@ -92,7 +92,6 @@ class GraphNet:
         permutation = torch.randperm(X.size()[0])
         for epoch in tqdm(range(epochs)):
             for i in range(0, X.size()[0], batch_size):
-                self.optimizer.zero_grad()
 
                 indices = permutation[i:i + batch_size]
                 batch_x = X[indices]
@@ -110,9 +109,11 @@ class GraphNet:
                     targets[j] = backward
 
                 loss = self.mse_loss(outputs, targets)
-
+                if verbose:
+                    print(f'Loss at iteration {epoch}:\t{loss}')
                 loss.backward()
                 self.optimizer.step()
+                self.optimizer.zero_grad()
 
     # def trajectory_balance_loss(self, final_states):
     #     """
