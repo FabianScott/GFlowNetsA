@@ -71,7 +71,7 @@ class GraphNet:
         # net = nn.Module()
         return MLP(n_hidden=self.n_hidden, n_clusters=self.n_clusters, n_layers=self.n_layers, output_size=1)
 
-    def train(self, X, Y=None, epochs=100, batch_size=None):
+    def train(self, X, Y=None, epochs=100, batch_size=None, verbose=False):
         """
         Given an iterable of final states and a number of epochs, train the
         network.
@@ -92,7 +92,6 @@ class GraphNet:
         permutation = torch.randperm(X.size()[0])
         for epoch in tqdm(range(epochs)):
             for i in range(0, X.size()[0], batch_size):
-                self.optimizer.zero_grad()
 
                 indices = permutation[i:i + batch_size]
                 batch_x = X[indices]
@@ -110,9 +109,11 @@ class GraphNet:
                     targets[j] = backward
 
                 loss = self.mse_loss(outputs, targets)
-
+                if verbose:
+                    print(f'Loss at iteration {epoch}:\t{loss}')
                 loss.backward()
                 self.optimizer.step()
+                self.optimizer.zero_grad()
 
     # def trajectory_balance_loss(self, final_states):
     #     """
@@ -315,7 +316,8 @@ class GraphNet:
         # Initialize the empty clustering and one-hot vector (source state)
         clustering_matrix = torch.zeros(self.size)
         clustering_list = torch.zeros(self.n_nodes)
-        next_states_p = [defaultdict(lambda: 0) for _ in range(self.n_nodes + 1)] # Must be overwritten in the case of log, as log(0) isn't defined. 
+        next_states_p = [defaultdict(lambda: 0) for _ in
+                         range(self.n_nodes + 1)]  # Must be overwritten in the case of log, as log(0) isn't defined.
         state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))  # Init_state
         prob_init = 0 if log else 1
         next_states_p[0] = {clustering_list: prob_init}  # Transition to state 0
@@ -328,13 +330,17 @@ class GraphNet:
                 output = self.forward_flow(state)
                 # output = torch.zeros((nodes_to_place.size()[0], number_of_clusters))
                 # shape = (nodes left, number of clusters (+1))
-                Fabian = True # Er det softmax eller er det ikke. 
+                Fabian = True  # Er det softmax eller er det ikke.
                 if not Fabian:
-                    if not log: output_prob = (output / torch.sum(output)) 
-                    else: output_prob = (torch.log(output) - torch.log(torch.sum(output)))
+                    if not log:
+                        output_prob = (output / torch.sum(output))
+                    else:
+                        output_prob = (torch.log(output) - torch.log(torch.sum(output)))
                 else:
-                    if not log: output_prob = self.softmax_matrix(output)
-                    else: output_prob = torch.log(self.softmax_matrix(output))
+                    if not log:
+                        output_prob = self.softmax_matrix(output)
+                    else:
+                        output_prob = torch.log(self.softmax_matrix(output))
 
                 for index_chosen, next_prob in enumerate(output_prob.flatten()):
                     new_state, temp_clustering_list = self.place_node(state, index_chosen,
@@ -347,7 +353,8 @@ class GraphNet:
                         next_states_p[n_layer + 1][temp_clustering_list] += (prob * next_prob)
                     else:
                         if next_states_p[n_layer + 1].get(temp_clustering_list, 0) == 0:
-                            next_states_p[n_layer + 1][temp_clustering_list] = prob + next_prob # Initialize the value. 
+                            next_states_p[n_layer + 1][
+                                temp_clustering_list] = prob + next_prob  # Initialize the value.
                         else:
                             # There are some funny issues here with not being able to use tensors as keys.
                             next_states_p[n_layer + 1][temp_clustering_list] = torch.logaddexp(
@@ -520,7 +527,8 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
     ----------
     Probability of data given clustering: float
     """
-    np.einsum("ii->i", A)[...] = 0  # This function assumes that nodes aren't connected to themselves. This should be irrelevant for the clustering.
+    np.einsum("ii->i", A)[
+        ...] = 0  # This function assumes that nodes aren't connected to themselves. This should be irrelevant for the clustering.
     # Product over all pairs of components.
     values, nk = np.unique(C, return_counts=True)
     # I just need to create m_kl and m_bar_kl matrices. Then I can vectorize the whole thing
@@ -577,7 +585,7 @@ def p_z(A, C, alpha=1, log=True):
     return log_p_z if log else np.exp(log_p_z)
 
 
-def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose = False):
+def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose=False):
     """Calculate P(X,z): the joint probability of the graph and a particular clustering structure. This is proportional to the posterior.
     # This is calculated by integrating out all the internal cluster connection parameters.
 
@@ -600,9 +608,9 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose = 
     ----------
     Probability of data and clustering: float
     """
-    assert 0 in C_in # All nodes should be clustered and the clusters should be 0-indexed. 0 must be in C_in. # We really should decide on one standard here.
+    assert 0 in C_in  # All nodes should be clustered and the clusters should be 0-indexed. 0 must be in C_in. # We really should decide on one standard here.
 
-    # Likelyhood part
+    # Likelihood part
     if a is None:
         a = torch.ones(1)
     if b is None:
@@ -612,7 +620,7 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose = 
 
     A = torch.t_copy(A_in)
     C = torch.t_copy(torch.tensor(C_in, dtype=torch.int64))
-    torch.einsum("ii->i", A)[...] = 0   # Fills the diagonal with zeros.
+    torch.einsum("ii->i", A)[...] = 0  # Fills the diagonal with zeros.
     values, nk = torch.unique(C, return_counts=True)
     n_C = torch.eye(int(C.max()) + 1)[C]
 
@@ -634,19 +642,20 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose = 
 
     # Prior part. P(z|K), så given K possible labellings.
     N = len(A)
-    K = torch.tensor(N) # The maximum number of possible labellings. This way it is consistent through all clusterings. 
+    K = torch.tensor(
+        N)  # The maximum number of possible labellings. This way it is consistent through all clusterings.
     # values, nk = torch.unique(C, return_counts=True)
-    K_bar = len(values) # number of non-empty clusters.
+    K_bar = len(values)  # number of non-empty clusters.
 
     log_labellings = torch_gammaln(K + 1) - torch_gammaln(K - K_bar + 1)
     A = alpha * K
 
     # nk (array of number of nodes in each cluster)
-    log_p_z = log_labellings + (torch_gammaln(A) - torch_gammaln(A + N)) + torch.sum(torch_gammaln(alpha + nk) - torch_gammaln(alpha))
+    log_p_z = log_labellings + (torch_gammaln(A) - torch_gammaln(A + N)) + torch.sum(
+        torch_gammaln(alpha + nk) - torch_gammaln(alpha))
 
     # Return joint probability, which is proportional to the posterior
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
-
 
 
 def Cmatrix_to_array(Cmat):
@@ -655,7 +664,7 @@ def Cmatrix_to_array(Cmat):
     for i, row in enumerate(Cmat):  # row = Cmat[i]
         if np.any(Cmat[i]):
             C[Cmat[i].astype(bool)] = cluster
-            Cmat[Cmat[i].astype(bool)] = 0 # Remove these clusters
+            Cmat[Cmat[i].astype(bool)] = 0  # Remove these clusters
             cluster += 1
     return C
 

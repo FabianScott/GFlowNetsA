@@ -1,11 +1,13 @@
 ToDo:
-    - Implement Gibbs sampler (Nikolaj)
-    - Remove lastnodeplaced (Fabian)
-    - Read Amortized clustering (Everyone)
-        - Think about node-order invariant inputs
-    - Conduct larger test (Gabriel)
-        - Extract the entire distribution
-    - Look at changes in the loss function. 
-    - New symmetric data inputs. Simple variant: count number of edges. 
-    - Test Z0 (Total flow).  
-    - Check why 1 cluster is consitently very probable.
+    - ( ) Implement Gibbs sampler (Nikolaj)
+    - (G:X) Read Amortized clustering (Everyone)
+        - ( ) Think about node-order invariant inputs
+    - ( ) Conduct larger test (Gabriel)
+        - ( ) Extract the entire distribution
+    - ( ) Look at changes in the loss function.
+    - (X) Look at the -np.inf exact posteior value. Check prior (Gabriel)
+    - ( ) New symmetric data inputs. Simple variant: count number of edges.
+    - ( ) Test Z0 (Total flow).
+    - (X) Opdateret projektbeskrivelse + Gantt chart
+    - ( ) Skriv på logbogen...
+    - ( ) Check why 1 cluster is consitently very probable.
