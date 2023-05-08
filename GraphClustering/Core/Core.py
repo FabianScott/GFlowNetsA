@@ -340,8 +340,8 @@ class GraphNet:
                     new_state, temp_clustering_list = self.place_node(state, index_chosen,
                                                                         return_clustering_list=True) # This ends up representing identical clusterings differently. We fix that.
                     temp_num_clusters = max(num_clusters, 1 + (index_chosen%(num_clusters+1))) # Just a clever way of figuring out how many clusters there are because I am being cheeky.
-                    clustering_matrix = self.get_clustering_matrix(temp_clustering_list, temp_num_clusters) # We could rewrite this function to not need the number of clusters
-                    temp_clustering_list = self.get_clustering_list(clustering_matrix)[0] 
+                    temp_clustering_matrix = self.get_clustering_matrix(temp_clustering_list, temp_num_clusters) # We could rewrite this function to not need the number of clusters
+                    temp_clustering_list = self.get_clustering_list(temp_clustering_matrix)[0] 
                     # Use the clustering list as the keys in the dictionary to save space
                     if not log:
                         next_states_p[n_layer + 1][temp_clustering_list] += (prob * next_prob)

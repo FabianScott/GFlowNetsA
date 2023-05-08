@@ -120,11 +120,39 @@ def clusters_all_index(clusters_all_tensor, specific_cluster_list):
     cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor, specific_cluster_list), dim=1) == 1)[0][0]
     return cluster_ind
 
+def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, log = True):
+    log_string = " Log " if log else " "
+    order = "index" if (sort_idx is None) else "Magnitude"
+    xlab = "Cluster Index" if (sort_idx is None) else "Sorted Cluster Index"
+    if sort_idx is None: sort_idx = torch.arange(len(cluster_post))
+
+    from_network = '' if ((net_posteriors_numpy is None) or (sample_posteriors_numpy is None)) else ':\nExact and extracted from network'
+    f = plt.figure()
+    plt.title('Cluster Posterior' + log_string + 'Probabilites by ' + order + from_network)
+    if not log: cluster_post = np.exp(cluster_post)
+    plt.plot(cluster_post[sort_idx], "bo")
+    if net_posteriors_numpy is not None:
+        if not log: net_posteriors_numpy = np.exp(net_posteriors_numpy)
+        plt.plot(net_posteriors_numpy[sort_idx], "ro", markersize=4)
+    if sample_posteriors_numpy is not None:
+        if not log: sample_posteriors_numpy = np.exp(sample_posteriors_numpy)
+        plt.plot(sample_posteriors_numpy[sort_idx], "gx")
+    plt.xlabel(xlab)
+    plt.ylabel("Posterior Probability")
+    plt.legend(["Exact values", "From Network", "Sampled Empirically"])
+    # plt.ylim(0, -5)
+    plt.tight_layout()
+    return
+
+
+
+
 if __name__ == '__main__':
-    N =  3
-    a, b, alpha = 0.5, 0.5, 3
+    N =  4
+    a, b, alpha = 1, 1, 3 # 10000
     log = True
     seed = 46
+    plot = True
     adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, alpha, log, seed)
 
     print(cluster_idxs)
@@ -147,13 +175,8 @@ if __name__ == '__main__':
     print("Probabilities: ", allPosteriors(N, a, b, alpha, log = False, joint = False))
     print(clusters_all)
     
-    f = plt.figure()
-    plt.title('Cluster Posterior Probabilites by Index')
-    plt.plot(cluster_post, "o")
-    plt.xlabel("Cluster Index")
-    plt.ylabel("Posterior Probability")
+    plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, log = log)
     plt.show()
-
 
     sort_idx = np.argsort(cluster_post)
     # Results
@@ -164,69 +187,54 @@ if __name__ == '__main__':
     for i, idx in enumerate(np.flip(sort_idx)[:top]):
         print(str(i+1)+": "+str(clusters_all[idx]))
 
-    f = plt.figure()
-    plt.title('Cluster Posterior Probabilites by Magnitude')
-    plt.plot(cluster_post[sort_idx], "o")
-    plt.xlabel("Sorted Cluster Index")
-    plt.ylabel("Posterior Probability")
+    plot_posterior(cluster_post, sort_idx = sort_idx, net_posteriors_numpy = None, sample_posteriors_numpy = None, log = log)
     plt.show()
+    # sys.exit()
 
-
-    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
+    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha, lr = 1)
     X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
-    net.train(X, epochs=1000) # This is the time consuming part. 
+    # Sample once before and after training
+    for i in range(2):
+        exact = True
+        if exact:
+            cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix = A_random, log = log)
+            net_posteriors = fix_net_clusters(cluster_prob_dict, clusters_all, log = log)
+            net_posteriors_numpy = net_posteriors.detach().numpy()
+
+        N_samples = 1000
+        if N_samples:
+            clusters_all_tensor = torch.tensor(clusters_all+1)
+            X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
+
+            sample_posterior_counts = torch.zeros(len(clusters_all))
+
+            for x in X1:
+                x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
+            
+                cluster_ind = clusters_all_index(clusters_all_tensor, specific_cluster_list = x_c_list)
+                sample_posterior_counts[cluster_ind] += 1
+
+            sample_posterior_probs = sample_posterior_counts/torch.sum(sample_posterior_counts)
+            if log:
+                sample_posterior_probs = torch.log(sample_posterior_probs)
+                assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
+            sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
+
+            if i == 0:
+                plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = True)
+                plt.show()
+
+                plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = False)
+                plt.show() 
+
+                net.train(X, epochs=10) # This is the time consuming part. 
+
     
-    exact = True
-    if exact:
-        cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix = A_random, log = log)
-        # print(cluster_prob_dict) # Here there is the significant problem of cleaning up the dictionary, since tensors are mutable and constitue unique keys.
-
-        net_posteriors = fix_net_clusters(cluster_prob_dict, clusters_all, log = log)
-        net_posteriors_numpy = net_posteriors.detach().numpy()
-
-    N_samples = 1000
-    if N_samples:
-        clusters_all_tensor = torch.tensor(clusters_all+1)
-        X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
-
-        sample_posterior_counts = torch.zeros(len(clusters_all))
-
-        for x in X1:
-            x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
-        
-            cluster_ind = clusters_all_index(clusters_all_tensor, specific_cluster_list = x_c_list)
-            sample_posterior_counts[cluster_ind] += 1
-
-        sample_posterior_probs = sample_posterior_counts/torch.sum(sample_posterior_counts)
-        if log:
-            sample_posterior_probs = torch.log(sample_posterior_probs)
-            assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
-        sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
-
-    
-    f = plt.figure()
-    plt.title('Cluster Posterior Log Probabilites by Magnitude:\nExact and extracted from network')
-    plt.plot(cluster_post[sort_idx], "bo")
-    if exact: plt.plot(net_posteriors_numpy[sort_idx], "ro", markersize=4)
-    if N_samples: plt.plot(sample_posteriors_numpy[sort_idx], "gx")
-    plt.xlabel("Sorted Cluster Index")
-    plt.ylabel("Posterior Probability")
-    plt.legend(["Exact values", "From Network", "Sampled Empirically"])
-    # plt.ylim(0, -5)
-    plt.tight_layout()
+    plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = True)
     plt.show()
 
-    f = plt.figure()
-    plt.title('Cluster Posterior Probabilites by Magnitude:\nExact and extracted from network')
-    plt.plot(np.exp(cluster_post[sort_idx]), "bo")
-    if exact: plt.plot(np.exp(net_posteriors_numpy[sort_idx]), "ro", markersize=4)
-    if N_samples: plt.plot(np.exp(sample_posteriors_numpy[sort_idx]), "gx")
-    plt.xlabel("Sorted Cluster Index")
-    plt.ylabel("Posterior Probability")
-    plt.legend(["Exact values", "From Network", "Sampled Empirically"])
-    # plt.ylim(0, -5)
-    plt.tight_layout()
-    plt.show()
+    plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = False)
+    plt.show() 
 
 
 
