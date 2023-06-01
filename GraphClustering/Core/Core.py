@@ -63,12 +63,10 @@ class GraphNet:
         self.termination_chance = 0 if termination_chance is None else termination_chance
 
     def create_model(self):
-        # Define the layers of the neural network
-        # layers = []
-        # Assuming the features extracted for each cluster has size 1
-
-        # Create an instance of the neural network and return it
-        # net = nn.Module()
+        """
+        Create an instance of the neural network and return it
+        :return:
+        """
         return MLP(n_hidden=self.n_hidden, n_clusters=self.n_clusters, n_layers=self.n_layers, output_size=1)
 
     def train(self, X, Y=None, epochs=100, batch_size=None, verbose=False):
@@ -89,22 +87,28 @@ class GraphNet:
         #     print(f'Missing iterable indicating which graphs can be evaluated using IRM!')
         #     raise NotImplementedError
 
-        permutation = torch.randperm(X.size()[0])
         for epoch in tqdm(range(epochs)):
+            # Permute every epoch
+            permutation = torch.randperm(X.size()[0])
+            # Train on every batch of the training data
             for i in range(0, X.size()[0], batch_size):
-
+                # Extract the batch
                 indices = permutation[i:i + batch_size]
                 batch_x = X[indices]
-
+                # Initialize tensors for the gradient step
                 outputs = torch.zeros((batch_size, 1))
                 targets = torch.zeros((batch_size, 1))
+
                 for j, x in enumerate(batch_x):
+                    # Get the forward and backward flows from the state
                     _, forward, backward = self.log_sum_flows(x)
                     outputs[j] = forward
                     if self.is_terminal(x):
-                        # Should calculate IRM value of the state:
                         adjacency_matrix, clustering_matrix = self.get_matrices_from_state(x)
-                        backward = torch_posterior(adjacency_matrix, clustering_matrix, a=self.a, b=self.b,
+                        # Subtract 1 from the clustering_list to make it 0-indexed for the posterior function
+                        clustering_list = self.get_clustering_list(clustering_matrix)[0] - 1
+                        # Calculates IRM value of the state:
+                        backward = torch_posterior(adjacency_matrix, clustering_list, a=self.a, b=self.b,
                                                    alpha=self.alpha)
                     targets[j] = backward
 
@@ -146,6 +150,8 @@ class GraphNet:
         """
         # The terminal_state does encode information about what node was most recently clustered
         adjacency_matrix, clustering_matrix = self.get_matrices_from_state(terminal_state)
+        # To prevent changes to the original values??
+        adjacency_matrix, clustering_matrix = adjacency_matrix.clone(), clustering_matrix.clone()
         current_clustering_list, number_of_clusters = self.get_clustering_list(clustering_matrix)
         prob_log_sum_forward = torch.zeros(1)
         # Need IRM to add here, leave out for now
@@ -181,7 +187,7 @@ class GraphNet:
         """
         Given a state, return the forward flow from the current
         forward model.
-        :param state: vector (n_nodes,)
+        :param state: vector ((n_nodes^2) * 2,)
         :return:
         """
         # return the forward flow for all possible actions (choosing node, assigning cluster)
@@ -292,7 +298,8 @@ class GraphNet:
                 clustering_list[node_chosen] = torch.tensor(cluster_index_chosen + 1, dtype=torch.float32)
                 clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
                 current_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
-
+            # Catch empty clusterings to see why they occur
+            assert sum(clustering_list) >= self.n_nodes
             final_states[epoch] = current_state
         return final_states
 
@@ -386,6 +393,40 @@ class GraphNet:
         assert -0.1 < torch.logsumexp(net_posteriors, (0)) < 0.1
         return net_posteriors
 
+    def plot_full_distribution(self, adjacency_matrix, filename_save=''):
+        from scipy.special import logsumexp
+
+        clusters_all = allPermutations(self.n_nodes)
+        Bell = len(clusters_all)
+        clusters_all_post = np.zeros(Bell)
+
+        for i, cluster in enumerate(clusters_all):
+            posterior = (torch_posterior(adjacency_matrix, cluster, a=torch.tensor(self.a), b=torch.tensor(self.b),
+                                         alpha=torch.tensor(self.alpha), log=True))
+            clusters_all_post[i] = posterior
+
+        cluster_post = clusters_all_post - logsumexp(clusters_all_post)
+
+        # Normalize them into proper log probabilities
+        if not log: cluster_post = np.exp(cluster_post)
+        sort_idx = np.argsort(cluster_post)
+
+        cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix, log=True, fix=True)
+        net_probs = [float(value) for key, value in cluster_prob_dict[-1].items()]
+
+        f = plt.figure()
+        plt.plot(cluster_post[sort_idx], "o", label='IRM Values')
+        plt.plot(net_probs, "o", label='GFlowNet values')
+
+        plt.title('Cluster Posterior Probabilites by Magnitude')
+        plt.xlabel("Cluster Index")
+        plt.ylabel("Posterior Probability")
+        plt.legend()
+        if filename_save:
+            plt.savefig(filename_save + '.png')
+        plt.show()
+
+        return
     # %% Helpers:
     def get_clustering_matrix(self, clustering_list, number_of_clusters):
         """
@@ -488,13 +529,17 @@ class GraphNet:
     def is_terminal(self, state):
         """
         Given a state vector, check if it is in a terminal state
-        by summing the diagonal of the clustering matrix
+        by summing the diagonal of the clustering matrix and
+        checking if it is equal to the number of nodes
         :param state:
         :return:
         """
         # Check the diagonal of the clustering matrix using indexing and if the sum == n_nodes it is terminal
+        _, clustering_matrix = self.get_matrices_from_state(state)
+        return torch.diag(clustering_matrix).sum() == self.n_nodes
 
-        return state[::self.n_nodes][self.n_nodes ** 2:2 * (self.n_nodes ** 2)].sum() == self.n_nodes
+    def __str__(self):
+        return f'GFlowNet Object with {self.n_nodes} nodes'
 
 
 class MLP(nn.Module):
@@ -813,4 +858,17 @@ def allPermutations(n):
 
     return np.array(perm[-1])-1
 
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    N = 3
+    a, b, alpha = 0.5, 0.5, 3
+    log = True
+    adjacency_matrix, clusters = IRM_graph(alpha=alpha, a=a, b=b, N=N)
+    cluster_idxs = clusterIndex(clusters)
+    clusters = len(clusters)
+
+    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha)
+    X = net.sample_forward(adjacency_matrix)
+    net.train(X)
 
