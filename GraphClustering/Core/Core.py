@@ -6,6 +6,7 @@ import torch.nn as nn
 from scipy.special import betaln, gammaln
 from torch.special import gammaln as torch_gammaln
 from torch.distributions import Beta
+import matplotlib.pyplot as plt
 
 
 class GraphNet:
@@ -393,7 +394,7 @@ class GraphNet:
         assert -0.1 < torch.logsumexp(net_posteriors, (0)) < 0.1
         return net_posteriors
 
-    def plot_full_distribution(self, adjacency_matrix, filename_save=''):
+    def plot_full_distribution(self, adjacency_matrix, filename_save='', log=True):
         from scipy.special import logsumexp
 
         clusters_all = allPermutations(self.n_nodes)
@@ -411,7 +412,7 @@ class GraphNet:
         if not log: cluster_post = np.exp(cluster_post)
         sort_idx = np.argsort(cluster_post)
 
-        cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix, log=True, fix=True)
+        cluster_prob_dict, fixed_probs = self.full_sample_distribution_G(adjacency_matrix=adjacency_matrix, log=True, fix=True)
         net_probs = [float(value) for key, value in cluster_prob_dict[-1].items()]
 
         f = plt.figure()
