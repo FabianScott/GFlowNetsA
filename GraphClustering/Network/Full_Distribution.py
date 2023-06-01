@@ -196,13 +196,13 @@ if __name__ == '__main__':
     # Sample once before and after training
     for i in range(2):
         exact = True
-        
+
         if exact:
-            cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix = A_random, log = log)
+            cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix = A_random, log = log, fix=False) # Could also use fix.
             net_posteriors = fix_net_clusters(cluster_prob_dict, clusters_all, log = log)
             net_posteriors_numpy = net_posteriors.detach().numpy()
 
-        N_samples = 10000
+        N_samples = 100
         if N_samples:
             clusters_all_tensor = torch.tensor(clusters_all+1)
             X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
