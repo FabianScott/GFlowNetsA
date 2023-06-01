@@ -206,51 +206,49 @@ class GraphNet:
             possible_node += 1
         return output
 
-    def get_all_probs(self, adjacency_matrix):
-        """
-        Given an adjacency matrix, calculate the log flow probabilities
-        of every possible state from the GFlowNet. Returns a list of
-        dictionaries where the keys are clustering matrices and
-        :param adjacency_matrix:
-        :return: list of dictionaries
-        """
-        from copy import deepcopy
-        from collections import defaultdict
-
-        def return_0():
-            return torch.zeros(1)
-
-        clustering_matrix = torch.zeros(adjacency_matrix.size())
-        previous_states = [torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))]
-        # The probability of starting in the staring state is 1
-        previous_layer_dict = {previous_states[0]: torch.log(torch.ones(1))}
-        out = []
-        # Search through the entire space
-        for _ in range(self.n_nodes):
-            current_layer_dict = defaultdict(return_0)
-            current_states_temp = []
-            # Loop through all states from the previous layer
-            for previous_state in tqdm(previous_states):
-                # Get the forward flows and convert into probabilities
-                forward_logits = self.forward_flow(previous_state)
-                forward_probs = self.softmax_matrix(forward_logits).flatten()
-                # Loop through all potential actions and store each probability
-                for index_chosen, prob in enumerate(forward_probs):
-                    # Calculate the log probability
-                    log_prob = torch.log(torch.tensor(prob))
-                    new_state, clustering_list = self.place_node(previous_state, index_chosen,
-                                                                 return_clustering_list=True)
-                    # Use the clustering list as the keys in the dictionary to save space
-                    current_states_temp.append(new_state)
-                    current_layer_dict[clustering_list] = torch.logaddexp(current_layer_dict[clustering_list],
-                                                                          log_prob + previous_layer_dict[
-                                                                              previous_state])
-            # Remember the probabilities from the previous layer
-            previous_layer_dict = deepcopy(current_layer_dict)
-            previous_states = deepcopy(current_states_temp)
-            out.append(current_layer_dict)
-
-        return out
+    # def get_all_probs(self, adjacency_matrix):
+    #     """
+    #     OBSOLETE!!
+    #     :param adjacency_matrix:
+    #     :return: list of dictionaries
+    #     """
+    #     from copy import deepcopy
+    #     from collections import defaultdict
+    #
+    #     def return_0():
+    #         return torch.zeros(1)
+    #
+    #     clustering_matrix = torch.zeros(adjacency_matrix.size())
+    #     previous_states = [torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))]
+    #     # The probability of starting in the staring state is 1
+    #     previous_layer_dict = {previous_states[0]: torch.log(torch.ones(1))}
+    #     out = []
+    #     # Search through the entire space
+    #     for _ in range(self.n_nodes):
+    #         current_layer_dict = defaultdict(return_0)
+    #         current_states_temp = []
+    #         # Loop through all states from the previous layer
+    #         for previous_state in tqdm(previous_states):
+    #             # Get the forward flows and convert into probabilities
+    #             forward_logits = self.forward_flow(previous_state)
+    #             forward_probs = self.softmax_matrix(forward_logits).flatten()
+    #             # Loop through all potential actions and store each probability
+    #             for index_chosen, prob in enumerate(forward_probs):
+    #                 # Calculate the log probability
+    #                 log_prob = torch.log(torch.tensor(prob))
+    #                 new_state, clustering_list = self.place_node(previous_state, index_chosen,
+    #                                                              return_clustering_list=True)
+    #                 # Use the clustering list as the keys in the dictionary to save space
+    #                 current_states_temp.append(new_state)
+    #                 current_layer_dict[clustering_list] = torch.logaddexp(current_layer_dict[clustering_list],
+    #                                                                       log_prob + previous_layer_dict[
+    #                                                                           previous_state])
+    #         # Remember the probabilities from the previous layer
+    #         previous_layer_dict = deepcopy(current_layer_dict)
+    #         previous_states = deepcopy(current_states_temp)
+    #         out.append(current_layer_dict)
+    #
+    #     return out
 
     def sample_forward(self, adjacency_matrix, epochs=None):
         """
@@ -298,12 +296,17 @@ class GraphNet:
             final_states[epoch] = current_state
         return final_states
 
-    def full_sample_distribution_G(self, adjacency_matrix, log=True):
+    def full_sample_distribution_G(self, adjacency_matrix, log=True, fix=False):
         """
-        Computes the exact forward sample probabilties
-        for each possible clustering.
+        Computes the exact forward sample probabilities
+        for each possible clustering. Calculates each step
+        from the previous and thus returns a list of dictionaries
+        where each entry corresponds to a layer, starting from
+        an empty clustering. If fix is True, it returns the
+        posterior values in order of the sorting, along with the
+        dictionary.
         :param log: (bool) Whether or not to compute the function using log-probabilities. This doesn't work, as we have to sum probabilities for multiple avenues.
-        :return: dictionary of the form {clustering_matrix: probability}
+        :return: list of dictionaries of the form {clustering_matrix: probability}, s
         """
         print("Warning: The state representation in this function does not include the last node placed.")
         print(
@@ -347,7 +350,7 @@ class GraphNet:
                                                                         return_clustering_list=True) # This ends up representing identical clusterings differently. We fix that.
                     temp_num_clusters = max(num_clusters, 1 + (index_chosen%(num_clusters+1))) # Just a clever way of figuring out how many clusters there are because I am being cheeky.
                     temp_clustering_matrix = self.get_clustering_matrix(temp_clustering_list, temp_num_clusters) # We could rewrite this function to not need the number of clusters
-                    temp_clustering_list = self.get_clustering_list(temp_clustering_matrix)[0] 
+                    temp_clustering_list = self.get_clustering_list(temp_clustering_matrix)[0]
                     # Use the clustering list as the keys in the dictionary to save space
                     if not log:
                         next_states_p[n_layer + 1][temp_clustering_list] += (prob * next_prob)
@@ -360,7 +363,28 @@ class GraphNet:
                             next_states_p[n_layer + 1][temp_clustering_list] = torch.logaddexp(
                                 next_states_p[n_layer + 1][temp_clustering_list], prob + next_prob)
             assert -0.1 < torch.logsumexp(torch.tensor(list(next_states_p[n_layer + 1].values())), (0)) < 0.1
-        return next_states_p
+
+        return next_states_p, self.fix_net_clusters(next_states_p, log=log) if fix else next_states_p
+
+    def fix_net_clusters(self, cluster_prob_dict, log=True):
+        clusters_all = allPermutations(self.n_nodes)
+        Bell, N = clusters_all.shape
+        net_posteriors = torch.zeros(Bell)
+        clusters_all_tensor = torch.tensor(clusters_all + 1)
+        assert -0.1 < torch.logsumexp(torch.tensor(list(cluster_prob_dict[N].values())),
+                                      (0)) < 0.1  # Make sure that the probabilities sum to 1.
+        for net_c, post in cluster_prob_dict[N].items():
+            # Vectorize this because I can.
+            cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor, net_c), dim=1) == 1)[0][0]
+            if not log:
+                net_posteriors[cluster_ind] += post
+            else:
+                if net_posteriors[cluster_ind] == 0:
+                    net_posteriors[cluster_ind] = post
+                else:
+                    net_posteriors[cluster_ind] = torch.logaddexp(net_posteriors[cluster_ind], post)
+        assert -0.1 < torch.logsumexp(net_posteriors, (0)) < 0.1
+        return net_posteriors
 
     # %% Helpers:
     def get_clustering_matrix(self, clustering_list, number_of_clusters):
@@ -509,6 +533,8 @@ class SimpleBackwardModel:
         return current_nodes / torch.sum(current_nodes)
 
 
+
+# %% Graph Theory functions
 def p_x_giv_z(A, C, a=1, b=1, log=True):
     """Calculate P(X|z): the probability of the graph given a particular clustering structure.
     # This is calculated by integrating out all the internal cluster connection parameters.
@@ -770,3 +796,21 @@ def clusterIndex(clusters):
     for i, k in enumerate(clusters):
         idxs = torch.cat((idxs, torch.tensor([i] * k)))
     return idxs
+
+def allPermutations(n):
+    """
+    Return a list of all possible permutations of clustering
+    lists for a graph with n nodes
+    :param n: int
+    :return: numpy array
+    """
+    perm = [[[1]]]
+    for i in range(n-1):
+        perm.append([])
+        for partial in perm[i]:
+            for j in range(1, max(partial) + 2):
+                perm[i + 1].append(partial + [j])
+
+    return np.array(perm[-1])-1
+
+
