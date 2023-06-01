@@ -9,5 +9,10 @@ ToDo:
 General ToDo:
     - Work on report
     - Work on diagrams for report
+        - Basic GFlowNet diagram
+            - GFlowNet Lego Example Diagram. 
+        - Show the IRM generative process
+        - Exemplary clustering matrix
+        - Flow diagram of how the clustering is constructed
     - Pitch
     - Presentation

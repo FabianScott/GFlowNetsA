@@ -371,7 +371,9 @@ class GraphNet:
                                 next_states_p[n_layer + 1][temp_clustering_list], prob + next_prob)
             assert -0.1 < torch.logsumexp(torch.tensor(list(next_states_p[n_layer + 1].values())), (0)) < 0.1
 
-        return next_states_p, self.fix_net_clusters(next_states_p, log=log) if fix else next_states_p
+        if not fix: return next_states_p
+        else: return next_states_p, self.fix_net_clusters(next_states_p, log=log) # I have no idea why the earlier turnary didn't work, but it didn't
+
 
     def fix_net_clusters(self, cluster_prob_dict, log=True):
         clusters_all = allPermutations(self.n_nodes)
@@ -696,7 +698,7 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose=Fa
     n_C = torch.eye(int(C.max()) + 1)[C]
 
     m_kl = n_C.T @ A @ n_C
-    torch.einsum("ii->i", m_kl)[...] //= 2  # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing.
+    torch.einsum("ii->i", m_kl)[...] /= 2  # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing. Will always be an integer.
 
     m_bar_kl = torch.outer(nk, nk) - torch.diag(nk * (nk + 1) / 2) - m_kl
 
