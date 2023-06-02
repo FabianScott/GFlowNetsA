@@ -73,6 +73,7 @@ def Gibbs_likelyhood(A, C, a = 0.5, b = 0.5, log = True):
     ----------
     A : Adjacency matrix (2D ndarray)
     C : clustering index array (1D ndarray) (number clustered nodes long with the cluster c of each node ordered by the Adjacency matrix at each index)
+            (0 Indexed. 1 Indexed should work as well, since it adds an empty initial cluster which doesn't change the likelyhood, but I am not sure.)  
     a and b: float
         Parameters for the beta distribution prior for the cluster connectivities. 
         a = b = 1 yields a uniform distribution.
@@ -81,15 +82,20 @@ def Gibbs_likelyhood(A, C, a = 0.5, b = 0.5, log = True):
 
     Return
     ----------
-    Array of Gibbs_likelyhoods for each cluster k: float
-    """  
+    Array of Gibbs_likelyhoods for each cluster k and +1 for a new cluster: float
+    """ 
+    if C.size == 0: return (np.zeros(1) if log else np.ones(1))
+    
     values, nk = np.unique(C, return_counts=True)
-    A = A[:(len(C)+1)]
+    A = A[:(len(C)+1),:(len(C)+1)]
     np.einsum("ii->i", A)[...] = 0
     
     n_C = np.identity(C.max() + 1, int)[C] # create node-cluster adjacency matrix
+    n_C = np.vstack((n_C, np.zeros(C.max()+1, int))) # add an empty last row as a place holder for the last node. 
+    n_C = np.hstack((n_C, np.zeros((len(C)+1,1), int))) # add an empty last partition with no nodes in it for the new cluster option.
+    nk = np.append(nk, 0) # The last extra cluster has no nodes.
     r_nl_matrix = (A @ n_C) # node i connections to each cluster. 
-    r_nl = r_nl_matrix [len(C)+1] # just node n. (Array)
+    r_nl = r_nl_matrix [len(C)] # just node n. (Array)
 
     m_kl = n_C.T @ A @ n_C
     np.einsum("ii->i", m_kl)[...] //= 2
@@ -226,6 +232,8 @@ if __name__ == "__main__":
     idxs = np.random.permutation(np.arange(l * k))
     A_random = A_adj[idxs][:, idxs]  # It makes sense to permute both axes in the same way.
     # Otherwise, you change the edges and their directionality. 
+
+    Gibbs_likelyhood(A_random, np.array([0,1,1,0,0,2,2,0,3,3]), a = 0.5, b = 0.5, log = True)
 
     K = 10
     # Create random clusterings
