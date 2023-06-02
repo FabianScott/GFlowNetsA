@@ -9,5 +9,6 @@ ToDo:
     - ( ) New symmetric data inputs. Simple variant: count number of edges.
     - ( ) Test Z0 (Total flow).
     - (X) Opdateret projektbeskrivelse + Gantt chart
-    - ( ) Skriv på logbogen...
+    - (X) Skriv på logbogen...
     - ( ) Check why 1 cluster is consitently very probable.
+    - ( ) Write section about simple example
