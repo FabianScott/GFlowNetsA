@@ -29,7 +29,8 @@ class GraphNet:
                  batch_size=10,
                  n_clusters=4,
                  using_cuda=False,
-                 using_backward_model=False
+                 using_backward_model=False,
+                 using_direct_loss=True
                  ):
         self.env = env
         self.n_layers = n_layers
@@ -63,6 +64,7 @@ class GraphNet:
         self.optimizer = torch.optim.Adam(chain, lr=self.lr)
         self.using_cuda = using_cuda
         self.using_backward_model = using_backward_model
+        self.using_direct_loss = using_direct_loss
         self.state_length = 2 * self.n_nodes ** 2
         self.termination_chance = 0 if termination_chance is None else termination_chance
 
@@ -106,9 +108,7 @@ class GraphNet:
 
                 for j, x in enumerate(batch_x):
                     # Get the forward and backward flows from the state
-                    _, forward, backward = self.log_sum_flows(x)
                     # Reward = 0
-                    outputs[j] = forward
                     if self.is_terminal(x):
                         adjacency_matrix, clustering_matrix = self.get_matrices_from_state(x)
                         # Subtract 1 from the clustering_list to make it 0-indexed for the posterior function
@@ -116,8 +116,13 @@ class GraphNet:
                         # Calculates IRM value of the state:
                         Reward = torch_posterior(adjacency_matrix, clustering_list, a=self.a, b=self.b,
                                                  alpha=self.alpha)
+
+                    outflow_network = self.model_forward.forward(x)
+                    _, forward, backward = self.log_sum_flows(x)
+
                     # Using trajectory balance loss:
-                    targets[j] = Reward + backward
+                    outputs[j] = outflow_network if self.using_direct_loss else forward
+                    targets[j] = Reward if self.using_direct_loss else Reward + backward
 
                 loss = self.mse_loss(outputs, targets)
                 loss_this_epoch += loss
