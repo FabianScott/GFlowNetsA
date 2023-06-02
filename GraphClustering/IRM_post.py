@@ -86,11 +86,12 @@ def Gibbs_likelihood(A, C, a = 0.5, b = 0.5, log = True):
     """ 
     if C.size == 0: return (np.zeros(1) if log else np.ones(1))
     
+    C = C.astype(int)
     values, nk = np.unique(C, return_counts=True)
     A = A[:(len(C)+1),:(len(C)+1)]
     np.einsum("ii->i", A)[...] = 0
     
-    n_C = np.identity(int(C.max() + 1), int)[C] # create node-cluster adjacency matrix
+    n_C = np.identity(C.max() + 1, int)[C] # create node-cluster adjacency matrix
     n_C = np.vstack((n_C, np.zeros(C.max()+1, int))) # add an empty last row as a place holder for the last node. 
     n_C = np.hstack((n_C, np.zeros((len(C)+1,1), int))) # add an empty last partition with no nodes in it for the new cluster option.
     nk = np.append(nk, 0) # The last extra cluster has no nodes.
