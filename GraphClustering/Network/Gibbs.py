@@ -5,24 +5,15 @@ import networkx as nx
 import torch
 import matplotlib.pyplot as plt
 try:
-    # from GraphClustering import GraphNet
-    print("All my friends hate hate Core GraphNet")
-    from GraphClustering.Network.Network import GraphNet # This worries me. There is an outdated version of Graphnet in Core.
+    from GraphClustering import GraphNet # I created a launch.json to make this work for debugging sessions. It is infuriating that it doesn't work regularly. 
 except: # Do not change this if it is unnecessary for you. Directly picking the cwd for jupyter notebooks can be a massive hassle in VSCode.
-    print("Previous import statement didn't work. Changing cwd to parent directory.") #
-    for _ in range(4):
-        print("Stepping one directory up.")
-        try:
-            os.chdir("..")
-            print(os.getcwd())
-            from GraphClustering import GraphNet
-            print("Successful import.")
-            break
-        except:
-            pass
+    import sys
+    print("Appending to sys path")
+    sys.path.append(os.getcwd()) # This is really ugly
+    from GraphClustering import GraphNet
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
-from GraphClustering.IRM_post import *
+from GraphClustering.IRM_post import Gibbs_likelihood
 
 def gibbsSampler(N, graph, alpha):
     n_nodes = graph.shape[0]
