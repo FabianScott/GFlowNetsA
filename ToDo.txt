@@ -8,6 +8,8 @@ ToDo:
 
     - ( ) Implement simple flow difference train function (Take a step back)
         - ( ) Then, when that works, try trajectory balance loss
+    
+    - ( ) Read Simple GFlowNet and Cube environment thoroughly and understand differences in sampling and train functions 
     - ( ) Read Bengio GFlowNet tutorial to see, how they solve some of these problems
         - ( ) That and the old code in the cube environment. 
     - ( ) Fix import sys path (Gabriel)
