@@ -171,9 +171,9 @@ if __name__ == '__main__':
     
 
     clusters_all = allPermutations(N)
-    cluster_post = allPosteriors(N, a, b, alpha, log, joint = False)
+    cluster_post = allPosteriors(A_random, a, b, alpha, log, joint = False)
     print("Log Probabilities: ", cluster_post)
-    print("Probabilities: ", allPosteriors(N, a, b, alpha, log = False, joint = False))
+    print("Probabilities: ", allPosteriors(A_random, a, b, alpha, log = False, joint = False))
     print(clusters_all)
     
     plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, log = log)
