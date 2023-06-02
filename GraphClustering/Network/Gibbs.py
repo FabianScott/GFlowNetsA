@@ -1,6 +1,7 @@
 import os
 print(os.getcwd()) # You should be running this from the GFlowNetsA directory.
 import numpy as np
+import networkx as nx
 import torch
 import matplotlib.pyplot as plt
 try:
@@ -21,27 +22,33 @@ except: # Do not change this if it is unnecessary for you. Directly picking the 
             pass
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
-
-def count_links(node_idx, adjacency_matrix, cluster_idxs):
-
-    return m_bar, r_bar
+from GraphClustering import IRM_post
 
 def gibbsSampler(N, graph, alpha):
-    n_nodes = len(graph[0])
+    n_nodes = graph.shape[0]
     clusters = []
     for i in range(N):
-        clusters.append([0])
-        for j, node in enumerate(np.permutation(n_nodes)):
-            p_zk = np.array([clusters[-1].count(cluster) for cluster in set(clusters[-1])]+[alpha])
-            p_zk /= sum(p_zk)
+        new_cluster = []
+        permutation = np.random.permutation(n_nodes)
+        for j, node in enumerate(permutation):
+            # Eq 33
+            prior = np.array([clusters[-1].count(cluster) for cluster in set(clusters[-1])]+[alpha])
+            # Eq 34
+            likelihood = Gibbs_likelihood(log = False)
 
-            []
+            post = prior * likelihood
+            post = post / sum(post)
+            cum_post = np.cumsum(post)
+            new_assign = sum(np.random.rand > cum_post)
+            new_cluster.append(new_assign)
 
-
-
-
-
-
+        clusters.append(np.zeros(n_nodes))
+        for i, c in zip(permutation, new_cluster):
+            clusters[-1][i] = c
 
 if __name__ == '__main__':
-    pass
+    G = nx.karate_club_graph()
+    Adj_karate = nx.adjacency_matrix(G).todense()
+    Adj_karate = Adj_karate > 0
+    graph = Adj_karate
+    gibbsSampler(1, graph, 2)
