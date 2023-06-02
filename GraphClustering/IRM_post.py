@@ -102,7 +102,7 @@ def Gibbs_likelihood(A, C, a = 0.5, b = 0.5, log = True):
     np.einsum("ii->i", m_kl)[...] //= 2
     m_bar_kl = np.outer(nk, nk) - np.diag(nk * (nk + 1) / 2) - m_kl
 
-    Gibbs_log_likelyhood = np.sum(betaln(m_kl + r_nl + a, m_bar_kl + nk - r_nl + b) - betaln(m_kl + a, m_bar_kl + b), axis=1)
+    Gibbs_log_likelyhood = np.sum(betaln(m_kl + r_nl + a, m_bar_kl + nk - r_nl + b) - betaln(m_kl + a, m_bar_kl + b), axis=1).reshape((-1))
 
     return Gibbs_log_likelyhood if log else np.exp(Gibbs_log_likelyhood)
 

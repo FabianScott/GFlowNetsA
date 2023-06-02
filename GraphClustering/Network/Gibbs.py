@@ -28,6 +28,7 @@ def gibbsSampler(N, graph, alpha):
             prior = np.concatenate((counts, np.array([alpha])))
             # Eq 34
             likelihood = Gibbs_likelihood(perm_graph, new_cluster, log = False)
+            likelihood = np.array(likelihood)[0]
 
             post = prior * likelihood
             post = post / sum(post)
@@ -46,4 +47,4 @@ if __name__ == '__main__':
     Adj_karate = nx.adjacency_matrix(G).todense()
     Adj_karate = Adj_karate > 0
     graph = Adj_karate
-    gibbsSampler(1, graph, 2)
+    clusters_sampled = gibbsSampler(100, graph, 5)
