@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 from tqdm import tqdm
 import torch.nn as nn
-from scipy.special import betaln, gammaln
+from scipy.special import betaln, gammaln, logsumexp
 from torch.special import gammaln as torch_gammaln
 from torch.distributions import Beta
 import matplotlib.pyplot as plt
@@ -58,7 +58,9 @@ class GraphNet:
         self.mse_loss = nn.MSELoss()
         self.softmax = torch.nn.Softmax(dim=0)
         self.z0 = nn.Parameter(torch.tensor([.0]))
-        self.optimizer = torch.optim.Adam(itertools.chain(self.model_forward.parameters(), (self.z0,)), lr=self.lr)
+        chain = itertools.chain(self.model_forward.parameters(), self.model_backward.parameters(), (self.z0,)) \
+            if using_backward_model else itertools.chain(self.model_forward.parameters(), (self.z0,))
+        self.optimizer = torch.optim.Adam(chain, lr=self.lr)
         self.using_cuda = using_cuda
         self.using_backward_model = using_backward_model
         self.state_length = 2 * self.n_nodes ** 2
@@ -92,6 +94,7 @@ class GraphNet:
         for epoch in tqdm(range(epochs)):
             # Permute every epoch
             permutation = torch.randperm(X.size()[0])
+            loss_this_epoch = 0
             # Train on every batch of the training data
             for i in range(0, X.size()[0], batch_size):
                 # Extract the batch
@@ -104,23 +107,25 @@ class GraphNet:
                 for j, x in enumerate(batch_x):
                     # Get the forward and backward flows from the state
                     _, forward, backward = self.log_sum_flows(x)
+                    # Reward = 0
                     outputs[j] = forward
-                    assert self.is_terminal(x)  # just for now
                     if self.is_terminal(x):
                         adjacency_matrix, clustering_matrix = self.get_matrices_from_state(x)
                         # Subtract 1 from the clustering_list to make it 0-indexed for the posterior function
                         clustering_list = self.get_clustering_list(clustering_matrix)[0] - 1
                         # Calculates IRM value of the state:
-                        backward = torch_posterior(adjacency_matrix, clustering_list, a=self.a, b=self.b,
-                                                   alpha=self.alpha)
-                    targets[j] = backward
+                        Reward = torch_posterior(adjacency_matrix, clustering_list, a=self.a, b=self.b,
+                                                 alpha=self.alpha)
+                    # Using trajectory balance loss:
+                    targets[j] = Reward + backward
 
                 loss = self.mse_loss(outputs, targets)
-                if verbose:
-                    print(f'Loss at iteration {epoch}:\t{loss}')
+                loss_this_epoch += loss
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
+            if verbose:
+                print(f'Loss at iteration {epoch + 1}:\t{loss_this_epoch}')
 
     # def trajectory_balance_loss(self, final_states):
     #     """
@@ -162,10 +167,11 @@ class GraphNet:
         # Will track the order in which nodes are removed from the graph
         trajectory = torch.zeros(self.n_nodes)
         node_no = 1
+        current_state = terminal_state
 
         while torch.sum(current_clustering_list).item():
-            probs_backward = self.model_backward.forward(
-                clustering_matrix)  # should take entire state when real model is used
+            probs_backward = self.model_backward.forward(current_state) if self.using_backward_model \
+                else self.model_backward.forward(clustering_matrix)
             index_chosen = torch.multinomial(probs_backward, 1)
             prob_log_sum_backward += torch.log(probs_backward[index_chosen])
             # Remove the node from the clustering
@@ -356,9 +362,11 @@ class GraphNet:
 
                 for index_chosen, next_prob in enumerate(output_prob.flatten()):
                     new_state, temp_clustering_list = self.place_node(state, index_chosen,
-                                                                        return_clustering_list=True) # This ends up representing identical clusterings differently. We fix that.
-                    temp_num_clusters = max(num_clusters, 1 + (index_chosen%(num_clusters+1))) # Just a clever way of figuring out how many clusters there are because I am being cheeky.
-                    temp_clustering_matrix = self.get_clustering_matrix(temp_clustering_list, temp_num_clusters) # We could rewrite this function to not need the number of clusters
+                                                                      return_clustering_list=True)  # This ends up representing identical clusterings differently. We fix that.
+                    temp_num_clusters = max(num_clusters, 1 + (index_chosen % (
+                                num_clusters + 1)))  # Just a clever way of figuring out how many clusters there are because I am being cheeky.
+                    temp_clustering_matrix = self.get_clustering_matrix(temp_clustering_list,
+                                                                        temp_num_clusters)  # We could rewrite this function to not need the number of clusters
                     temp_clustering_list = self.get_clustering_list(temp_clustering_matrix)[0]
                     # Use the clustering list as the keys in the dictionary to save space
                     if not log:
@@ -373,9 +381,11 @@ class GraphNet:
                                 next_states_p[n_layer + 1][temp_clustering_list], prob + next_prob)
             assert -0.1 < torch.logsumexp(torch.tensor(list(next_states_p[n_layer + 1].values())), (0)) < 0.1
 
-        if not fix: return next_states_p
-        else: return next_states_p, self.fix_net_clusters(next_states_p, log=log) # I have no idea why the earlier turnary didn't work, but it didn't
-
+        if not fix:
+            return next_states_p
+        else:
+            return next_states_p, self.fix_net_clusters(next_states_p,
+                                                        log=log)  # I have no idea why the earlier turnary didn't work, but it didn't
 
     def fix_net_clusters(self, cluster_prob_dict, log=True):
         clusters_all = allPermutations(self.n_nodes)
@@ -398,7 +408,6 @@ class GraphNet:
         return net_posteriors
 
     def plot_full_distribution(self, adjacency_matrix, filename_save='', log=True):
-        from scipy.special import logsumexp
 
         clusters_all = allPermutations(self.n_nodes)
         Bell = len(clusters_all)
@@ -415,12 +424,15 @@ class GraphNet:
         if not log: cluster_post = np.exp(cluster_post)
         sort_idx = np.argsort(cluster_post)
 
-        cluster_prob_dict, fixed_probs = self.full_sample_distribution_G(adjacency_matrix=adjacency_matrix, log=True, fix=True)
+        cluster_prob_dict, fixed_probs = self.full_sample_distribution_G(adjacency_matrix=adjacency_matrix, log=True,
+                                                                         fix=True)
         # net_probs = [float(value) for key, value in fixed_probs]
 
         f = plt.figure()
-        plt.plot(cluster_post[sort_idx], "o", label='IRM Values')
-        plt.plot(fixed_probs.detach().numpy(), "o", label='GFlowNet values')
+        values_real = cluster_post[sort_idx]
+        values_network = fixed_probs.detach().numpy()[sort_idx]
+        plt.plot(values_real, "o", label='IRM Values')
+        plt.plot(values_network, "o", label='GFlowNet values')
 
         plt.title('Cluster Posterior Probabilites')
         plt.xlabel("Cluster Index")
@@ -431,7 +443,8 @@ class GraphNet:
             plt.savefig(filename_save + '.png')
         plt.show()
 
-        return cluster_post, fixed_probs
+        return cluster_post, fixed_probs, sort_idx
+
     # %% Helpers:
     def get_clustering_matrix(self, clustering_list, number_of_clusters):
         """
@@ -583,7 +596,6 @@ class SimpleBackwardModel:
         return current_nodes / torch.sum(current_nodes)
 
 
-
 # %% Graph Theory functions
 def p_x_giv_z(A, C, a=1, b=1, log=True):
     """Calculate P(X|z): the probability of the graph given a particular clustering structure.
@@ -701,7 +713,8 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose=Fa
     n_C = torch.eye(int(C.max()) + 1)[C]
 
     m_kl = n_C.T @ A @ n_C
-    torch.einsum("ii->i", m_kl)[...] /= 2  # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing. Will always be an integer.
+    torch.einsum("ii->i", m_kl)[
+        ...] /= 2  # m_kl[np.diag_indices_form(m_kl)] //= 2 should do the same thing. Will always be an integer.
 
     m_bar_kl = torch.outer(nk, nk) - torch.diag(nk * (nk + 1) / 2) - m_kl
 
@@ -847,6 +860,7 @@ def clusterIndex(clusters):
         idxs = torch.cat((idxs, torch.tensor([i] * k)))
     return idxs
 
+
 def allPermutations(n):
     """
     Return a list of all possible permutations of clustering
@@ -855,13 +869,13 @@ def allPermutations(n):
     :return: numpy array
     """
     perm = [[[1]]]
-    for i in range(n-1):
+    for i in range(n - 1):
         perm.append([])
         for partial in perm[i]:
             for j in range(1, max(partial) + 2):
                 perm[i + 1].append(partial + [j])
 
-    return np.array(perm[-1])-1
+    return np.array(perm[-1]) - 1
 
 
 if __name__ == '__main__':
@@ -873,8 +887,11 @@ if __name__ == '__main__':
     cluster_idxs = clusterIndex(clusters)
     clusters = len(clusters)
 
+    net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha, using_backward_model=True)
+    X1 = net2.sample_forward(adjacency_matrix)
+    net2.train(X1)
+
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha)
     X = net.sample_forward(adjacency_matrix)
     net.train(X, epochs=2)
     net.plot_full_distribution(adjacency_matrix)
-
