@@ -66,7 +66,7 @@ def r_nl(A, C, n, l):
 
     return r_nl
 
-def Gibbs_likelyhood(A, C, a = 0.5, b = 0.5, log = True):
+def Gibbs_likelihood(A, C, a = 0.5, b = 0.5, log = True):
     """Calculate Gibbs_likelyhood as presented in Mikkel's paper.
 
     Parameters
@@ -89,7 +89,7 @@ def Gibbs_likelyhood(A, C, a = 0.5, b = 0.5, log = True):
     
     n_C = np.identity(C.max() + 1, int)[C] # create node-cluster adjacency matrix
     r_nl_matrix = (A @ n_C) # node i connections to each cluster. 
-    r_nl = r_nl_matrix [len(C)+1] # just node n. (Array)
+    r_nl = r_nl_matrix[len(C)+1] # just node n. (Array)
 
     m_kl = n_C.T @ A @ n_C
     np.einsum("ii->i", m_kl)[...] //= 2
