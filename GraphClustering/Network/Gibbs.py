@@ -22,7 +22,7 @@ except: # Do not change this if it is unnecessary for you. Directly picking the 
             pass
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
-from GraphClustering import IRM_post
+from GraphClustering.IRM_post import *
 
 def gibbsSampler(N, graph, alpha):
     n_nodes = graph.shape[0]
@@ -32,7 +32,7 @@ def gibbsSampler(N, graph, alpha):
         permutation = np.random.permutation(n_nodes)
         for j, node in enumerate(permutation):
             # Eq 33
-            prior = np.array([clusters[-1].count(cluster) for cluster in set(clusters[-1])]+[alpha])
+            prior = np.array([new_cluster.count(cluster) for cluster in set(new_cluster)]+[alpha])
             # Eq 34
             likelihood = Gibbs_likelihood(log = False)
 
