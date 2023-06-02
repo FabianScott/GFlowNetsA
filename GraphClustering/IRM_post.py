@@ -66,7 +66,7 @@ def r_nl(A, C, n, l):
 
     return r_nl
 
-def Gibbs_likelyhood(A, C, a = 0.5, b = 0.5, log = True):
+def Gibbs_likelihood(A, C, a = 0.5, b = 0.5, log = True):
     """Calculate Gibbs_likelyhood as presented in Mikkel's paper.
 
     Parameters

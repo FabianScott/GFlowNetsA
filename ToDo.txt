@@ -2,17 +2,13 @@ ToDo:
     - ( ) Implement Gibbs sampler (Nikolaj)
     - (G:X) Read Amortized clustering (Everyone)
         - ( ) Think about node-order invariant inputs
-        - ( ) New symmetric data inputs. Simple variant: count number of edges.
-    - ( ) Check why 1 cluster is consitently very probable. Test Z0 (Total flow).
+    - ( ) Conduct larger test (Gabriel)
+        - ( ) Extract the entire distribution
     - ( ) Look at changes in the loss function.
-
-General ToDo:
-    - Work on report
-    - Work on diagrams for report
-        - Basic GFlowNet diagram
-            - GFlowNet Lego Example Diagram. 
-        - Show the IRM generative process
-        - Exemplary clustering matrix
-        - Flow diagram of how the clustering is constructed
-    - Pitch
-    - Presentation
+    - (X) Look at the -np.inf exact posteior value. Check prior (Gabriel)
+    - ( ) New symmetric data inputs. Simple variant: count number of edges.
+    - ( ) Test Z0 (Total flow).
+    - (X) Opdateret projektbeskrivelse + Gantt chart
+    - (X) Skriv på logbogen...
+    - ( ) Check why 1 cluster is consitently very probable.
+    - ( ) Write section about simple example

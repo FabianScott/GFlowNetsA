@@ -39,7 +39,7 @@ class GraphNet:
         self.n_nodes = n_nodes
         self.a, self.b, self.alpha = torch.tensor([a]), torch.tensor([b]), torch.tensor([alpha])
         self.size = (n_nodes, n_nodes)
-        self.model_forward = MLP(output_size=1,
+        self.model_forward = MLP(output_size=n_nodes * n_nodes,
                                  n_nodes=n_nodes,
                                  n_hidden=n_hidden,
                                  n_clusters=n_clusters,
@@ -111,25 +111,6 @@ class GraphNet:
                 loss.backward()
                 self.optimizer.step()
 
-    # def trajectory_balance_loss(self, final_states):
-    #     """
-    #     Using the log_sum_flows function, create a list of
-    #     losses to pass to the optimizer.
-    #     OBSOLETE FUNCTION!!
-    #     :param final_states: iterable of state vectors
-    #     :return: losses: list of losses
-    #     """
-    #     # final_states is a list of vectors representing states with at minimum one node missing
-    #     losses = []
-    #
-    #     for state in final_states:
-    #         # The probabilities are computed while creating the trajectories
-    #         trajectory, probs_log_sum_backward, probs_log_sum_forward = self.log_sum_flows(state)
-    #         loss = self.mse_loss(probs_log_sum_forward, probs_log_sum_backward)
-    #         losses.append(loss)
-    #
-    #     return losses
-
     def log_sum_flows(self, terminal_state):
         """
         Given a terminal state, calculate the log sum of the flow
@@ -165,9 +146,10 @@ class GraphNet:
             # Cluster labels are 1-indexed
             cluster_origin_index = current_clustering_list[index_chosen] - 1
             # Now calculate the forward flow into the state we passed to the backward model:
-            current_clustering_list, _ = self.get_clustering_list(clustering_matrix)
             node_index_forward = torch.sum(current_clustering_list[:index_chosen] == 0)
-            prob_log_sum_forward += torch.log(forward_probs[(int(node_index_forward), int(cluster_origin_index[0]))])
+            prob_log_sum_forward += torch.log(forward_probs[(index_chosen, int(cluster_origin_index[0]))])
+
+            current_clustering_list, _ = self.get_clustering_list(clustering_matrix)
             trajectory[index_chosen] = node_no
             node_no += 1
 
@@ -185,21 +167,13 @@ class GraphNet:
         current_adjacency, current_clustering = self.get_matrices_from_state(state)
         # number of clusters starts at 1
         clustering_list, number_of_clusters = self.get_clustering_list(current_clustering)
-        nodes_to_place = torch.argwhere(torch.sum(current_clustering, dim=0) == 0)  # it's symmetrical
+        invalid_nodes = torch.argwhere(torch.sum(current_clustering, dim=0) != 0)  # it's symmetrical
 
-        output = torch.zeros((nodes_to_place.size()[0], number_of_clusters))
-        possible_node = 0
-        for node_index in nodes_to_place:
-            # node index is a tensor
-            for possible_cluster in range(1, number_of_clusters + 1):
-                temp_clustering_list = torch.clone(clustering_list)
-                temp_clustering_list[node_index] = possible_cluster
-                temp_clustering = self.get_clustering_matrix(temp_clustering_list, number_of_clusters)
-                temp_state = torch.concat(
-                    (current_adjacency.flatten(), temp_clustering.flatten()))
+        # Get the forward flow from the neural network and mask it to ignore nodes that are already clustered
+        output = self.model_forward.forward(state)
+        output[invalid_nodes] = 0
+        output[:, invalid_nodes] = 0
 
-                output[possible_node, possible_cluster - 1] = self.model_forward.forward(temp_state)
-            possible_node += 1
         return output
 
     def get_all_probs(self, adjacency_matrix):
