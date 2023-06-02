@@ -7,6 +7,7 @@ from scipy.special import betaln, gammaln
 from torch.special import gammaln as torch_gammaln
 from torch.distributions import Beta
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 
 class GraphNet:
@@ -104,6 +105,7 @@ class GraphNet:
                     # Get the forward and backward flows from the state
                     _, forward, backward = self.log_sum_flows(x)
                     outputs[j] = forward
+                    assert self.is_terminal(x)  # just for now
                     if self.is_terminal(x):
                         adjacency_matrix, clustering_matrix = self.get_matrices_from_state(x)
                         # Subtract 1 from the clustering_list to make it 0-indexed for the posterior function
@@ -316,13 +318,12 @@ class GraphNet:
         :param log: (bool) Whether or not to compute the function using log-probabilities. This doesn't work, as we have to sum probabilities for multiple avenues.
         :return: list of dictionaries of the form {clustering_matrix: probability}, s
         """
-        print("Warning: The state representation in this function does not include the last node placed.")
-        print(
-            "Warning: Because this function has to sum small probabilities, it will likely experience underflow even for meagre graphs.")
-        print(
-            "Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This might take a while.")
-        from copy import deepcopy
-        from collections import defaultdict
+        # print("Warning: The state representation in this function does not include the last node placed.")
+        # print(
+        #     "Warning: Because this function has to sum small probabilities, it will likely experience underflow even for meagre graphs.")
+        # print(
+        #     "Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This might take a while.")
+        # from copy import deepcopy
 
         # Initialize the empty clustering and one-hot vector (source state)
         clustering_matrix = torch.zeros(self.size)
@@ -415,21 +416,22 @@ class GraphNet:
         sort_idx = np.argsort(cluster_post)
 
         cluster_prob_dict, fixed_probs = self.full_sample_distribution_G(adjacency_matrix=adjacency_matrix, log=True, fix=True)
-        net_probs = [float(value) for key, value in cluster_prob_dict[-1].items()]
+        # net_probs = [float(value) for key, value in fixed_probs]
 
         f = plt.figure()
         plt.plot(cluster_post[sort_idx], "o", label='IRM Values')
-        plt.plot(net_probs, "o", label='GFlowNet values')
+        plt.plot(fixed_probs.detach().numpy(), "o", label='GFlowNet values')
 
-        plt.title('Cluster Posterior Probabilites by Magnitude')
+        plt.title('Cluster Posterior Probabilites')
         plt.xlabel("Cluster Index")
         plt.ylabel("Posterior Probability")
+        plt.xticks(np.arange(1, len(fixed_probs) + 1))
         plt.legend()
         if filename_save:
             plt.savefig(filename_save + '.png')
         plt.show()
 
-        return
+        return cluster_post, fixed_probs
     # %% Helpers:
     def get_clustering_matrix(self, clustering_list, number_of_clusters):
         """
@@ -863,7 +865,7 @@ def allPermutations(n):
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
     N = 3
     a, b, alpha = 0.5, 0.5, 3
     log = True
@@ -873,5 +875,6 @@ if __name__ == '__main__':
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha)
     X = net.sample_forward(adjacency_matrix)
-    net.train(X)
+    net.train(X, epochs=2)
+    net.plot_full_distribution(adjacency_matrix)
 
