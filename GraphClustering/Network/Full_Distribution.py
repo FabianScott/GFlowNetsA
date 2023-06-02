@@ -196,13 +196,15 @@ if __name__ == '__main__':
     # Sample once before and after training
     for i in range(2):
         exact = True
+        train_epochs = 10
 
         if exact:
             cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix = A_random, log = log, fix=False) # Could also use fix.
             net_posteriors = fix_net_clusters(cluster_prob_dict, clusters_all, log = log)
             net_posteriors_numpy = net_posteriors.detach().numpy()
+        else: net_posteriors_numpy = None
 
-        N_samples = 100
+        N_samples = 1000
         if N_samples:
             clusters_all_tensor = torch.tensor(clusters_all+1)
             X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
@@ -221,14 +223,14 @@ if __name__ == '__main__':
                 assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
             sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
 
-            if i == 0:
-                plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = True)
-                plt.show()
+        if i == 0:
+            plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = True)
+            plt.show()
 
-                plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = False)
-                plt.show() 
+            plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = False)
+            plt.show() 
 
-                net.train(X, epochs=10) # This is the time consuming part. 
+            if train_epochs: net.train(X, epochs=train_epochs) # This is the time consuming part. 
 
     
     plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = True)
