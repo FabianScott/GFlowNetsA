@@ -10,6 +10,7 @@ ToDo:
         - ( ) Then, when that works, try trajectory balance loss
     - ( ) Read Bengio GFlowNet tutorial to see, how they solve some of these problems
         - ( ) That and the old code in the cube environment. 
+    - ( ) Fix import sys path (Gabriel)
 
 General ToDo:
     - Work on report
