@@ -44,4 +44,4 @@ def gibbsSampler(N, graph, alpha):
 
 
 if __name__ == '__main__':
-
+    pass
