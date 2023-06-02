@@ -233,7 +233,7 @@ if __name__ == "__main__":
     A_random = A_adj[idxs][:, idxs]  # It makes sense to permute both axes in the same way.
     # Otherwise, you change the edges and their directionality. 
 
-    Gibbs_likelyhood(A_random, np.array([0,1,1,0,0,2,2,0,3,3]), a = 0.5, b = 0.5, log = True)
+    Gibbs_likelihood(A_random, np.array([0,1,1,0,0,2,2,0,3,3]), a = 0.5, b = 0.5, log = True)
 
     K = 10
     # Create random clusterings
