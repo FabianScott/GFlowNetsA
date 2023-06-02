@@ -65,8 +65,9 @@ def allPermutations(n):
 
     return np.array(perm[-1])-1
 
-def allPosteriors(N, a, b, alpha, log, joint = False):
+def allPosteriors(A_random, a, b, alpha, log, joint = False):
     # Computing posteriors for all clusters.
+    N = len(A_random)
     clusters_all = allPermutations(N)
     Bell = len(clusters_all)
     clusters_all_post = np.zeros(Bell)
@@ -108,7 +109,7 @@ def fix_net_clusters(cluster_prob_dict, clusters_all, log = True):
     assert -0.1 < torch.logsumexp(torch.tensor(list(cluster_prob_dict[N].values())), (0)) < 0.1 # Make sure that the probabilities sum to 1. 
     for net_c, post in cluster_prob_dict[N].items():
         # Vectorize this because I can.
-        cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor,net_c), dim=1) == 1)[0][0] 
+        cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor,net_c), dim=1) == 1)[0][0] # Find the correct cluster_ind from any net_c
         if not log: net_posteriors[cluster_ind] += post
         else: 
             if net_posteriors[cluster_ind] == 0: net_posteriors[cluster_ind] = post
@@ -195,7 +196,7 @@ if __name__ == '__main__':
     X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
     # Sample once before and after training
     for i in range(2):
-        exact = True
+        exact = False
         train_epochs = 10
 
         if exact:
