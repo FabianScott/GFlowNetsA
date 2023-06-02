@@ -28,23 +28,27 @@ def gibbsSampler(N, graph, alpha):
     n_nodes = graph.shape[0]
     clusters = []
     for i in range(N):
-        new_cluster = []
+        new_cluster = np.array([])
         permutation = np.random.permutation(n_nodes)
-        for j, node in enumerate(permutation):
+        perm_graph = graph[permutation][:, permutation]
+        for node in permutation:
             # Eq 33
-            prior = np.array([new_cluster.count(cluster) for cluster in set(new_cluster)]+[alpha])
+            _, counts = np.unique(new_cluster, return_counts=True)
+            prior = np.concatenate((counts, np.array([alpha])))
             # Eq 34
-            likelihood = Gibbs_likelihood(log = False)
+            likelihood = Gibbs_likelihood(perm_graph, new_cluster, log = False)
 
             post = prior * likelihood
             post = post / sum(post)
             cum_post = np.cumsum(post)
-            new_assign = sum(np.random.rand > cum_post)
-            new_cluster.append(new_assign)
+            new_assign = int(sum(np.random.rand() > cum_post))
+            new_cluster = np.append(new_cluster, new_assign)
 
         clusters.append(np.zeros(n_nodes))
         for i, c in zip(permutation, new_cluster):
             clusters[-1][i] = c
+
+    return clusters
 
 if __name__ == '__main__':
     G = nx.karate_club_graph()
