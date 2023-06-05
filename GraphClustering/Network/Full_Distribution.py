@@ -135,6 +135,13 @@ def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, s
     plt.tight_layout()
     return
 
+def save_img(N, log, i, train_epochs):
+    # This function has to be used from the GFlowNetsA directory. 
+    stage = "pretrain" if i == 0 else "posttrain"
+    filename = 'N{N}_{log}posteriors_{stage}{train_epochs}'.format(N=N, log= ("log_" if log else ""), stage=stage, train_epochs = (train_epochs if i == 1 else ""))
+    completeName = os.path.join(os.getcwd(), "Plots", "full_distribution" , filename+".png")
+    plt.savefig(completeName, bbox_inches='tight')
+
 def time_func(func, n = 1, *kwargs):
     t0 = time.process_time()
     for i in range(n):
@@ -143,8 +150,8 @@ def time_func(func, n = 1, *kwargs):
     t_total = t1-t0
     return t_total
 
-def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, check_adj = False, plot_adj = False, plot_results = False, _print_clusterings = False,
-                           top = 10, exact = False, N_samples = None, train_epochs = 100):
+def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj = False, check_adj = False, plot_results = False, save_results = False,
+                        _print_clusterings = False, top = 10, exact = False, N_samples = None, train_epochs = 100):
     """
     A combined test script to test the exact IRM posterior values against those learned by the GFlowNet.
         It is flexible and can ignore test methods according to parameter values.
@@ -155,11 +162,13 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, check_ad
             The cluster concentration is distributed as a chinese restaurant process (CRP) with alpha as concentration parameter. 
         log: (bool) Whether or not to compute the function using log-probabilities.
         seed: (int) Seed to ensure result consistency
-        check_adj: (bool) Terminate after generating adjacency matrix.
-
         plot_adj: (bool) Whether or not to plot the original and scrambled adjacency matrices.
-        plot_results: (bool) Whether or not to plot the results.
-        _print_clusterings: (bool) 
+        check_adj: (bool) Terminate after generating adjacency matrix.
+        
+        plot_results: (bool) Whether or not to display plots of the results.
+        save_results: (bool) Whether or not to save plots of the results in the plots folder.
+
+        _print_clusterings: (bool) Whether or not to print all possible clusterings and posteriors. Grows fast with N, mainly for debugging. 
 
         top: (int) Print the "top" clusterings.
         exact: (bool) Calculate the exact probability distribution of the GFlowNet using the forward policy
@@ -244,12 +253,16 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, check_ad
                 assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
             sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
         
-        if plot_results: # Plot results before and after training.
+        if plot_results or save_results: # Plot results before and after training.
             plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = True)
-            plt.show()
+            if save_results: save_img(N, log = True, i = i, train_epochs = train_epochs)
+            if plot_results: plt.show()
+            plt.close()
 
             plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = False)
-            plt.show()
+            if save_results: save_img(N, log = False, i = i, train_epochs = train_epochs)
+            if plot_results: plt.show()
+            plt.close()
 
         if i == 0:
 
@@ -262,7 +275,6 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, check_ad
 
 
 if __name__ == '__main__':
-    t0 = time.process_time()
     """
     A combined test script to test the exact IRM posterior values against those learned by the GFlowNet.
         It is flexible and can ignore test methods according to parameter values.
@@ -273,24 +285,36 @@ if __name__ == '__main__':
             The cluster concentration is distributed as a chinese restaurant process (CRP) with alpha as concentration parameter. 
         log: (bool) Whether or not to compute the function using log-probabilities.
         seed: (int) Seed to ensure result consistency
-
         plot_adj: (bool) Whether or not to plot the original and scrambled adjacency matrices.
-        plot_results: (bool) Whether or not to plot the results.
+        check_adj: (bool) Terminate after generating adjacency matrix.
+
+        plot_results: (bool) Whether or not to display plots of the results.
+        save_results: (bool) Whether or not to save plots of the results in the plots folder.
+
+        _print_clusterings: (bool) Whether or not to print all possible clusterings and posteriors. Grows fast with N, mainly for debugging. 
 
         top: (int) Print the "top" clusterings.
         exact: (bool) Calculate the exact probability distribution of the GFlowNet using the forward policy
-        N_samples: (int) Calculate the empirical probability distribution of the GFlowNet by sampling N_samples
+        N_samples: (int) Calculate the empirical probability distribution of the GFlowNet by sampling N_samples. If none, N_samples = 10*np.power(4,N)
         train_epochs: (int) Train the network for "train_epochs". This is the major time sink.
 
     :soft return: If plots: returns plots comparing IRM posterior values for the different clusterings.
     """
-    N =  6
+    t0 = time.process_time()
+    N =  4
     a, b, alpha = 1, 1, 3 # 10000
     log = True
     seed = 46
-    plot_adj = False
+    plot_adj = True
+    check_adj = False
     plot_results = False
+    save_results = True
     _print_clusterings = False
+
+    top = 10
+    exact = True
+    N_samples = None
+    train_epochs = 100
     adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, alpha, log, seed)
 
     if plot_adj:
@@ -298,7 +322,7 @@ if __name__ == '__main__':
         plt.figure()
         plt.imshow(adjacency_matrix)
         plt.show()
-        # sys.exit()
+        if check_adj: sys.exit()
     
     A_random, idxs, cluster_random, cluster_num = scramble_graph(adjacency_matrix, clustering_list = cluster_idxs, seed = 42)
     
@@ -349,7 +373,7 @@ if __name__ == '__main__':
             net_posteriors_numpy = net_posteriors.detach().numpy()
         else: net_posteriors_numpy = None
 
-        N_samples = 1000
+        if N_samples is None: N_samples = 10*np.power(4,N)
         if N_samples:
             clusters_all_tensor = torch.tensor(clusters_all+1)
             X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
@@ -368,19 +392,24 @@ if __name__ == '__main__':
                 assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
             sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
         
-        if plot_results: # Plot results before and after training.
+        if plot_results or save_results: # Plot results before and after training.
             plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = True)
-            plt.show()
+            if save_results: save_img(N, log = True, i = i, train_epochs = train_epochs)
+            if plot_results: plt.show()
+            plt.close()
 
             plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = False)
-            plt.show()
+            if save_results: save_img(N, log = False, i = i, train_epochs = train_epochs)
+            if plot_results: plt.show()
+            plt.close()
 
         if i == 0:
 
             if train_epochs: net.train(X, epochs=train_epochs) # This is the time consuming part. 
+
     t1 = time.process_time()
     t_total = t1-t0
-    print(N, ": ", t_total)
+    print("Total elapsed time for ",N, "nodes: ", t_total)
     
 
 
