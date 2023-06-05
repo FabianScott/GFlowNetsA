@@ -151,7 +151,7 @@ def time_func(func, n = 1, *kwargs):
     return t_total
 
 def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj = False, check_adj = False, plot_results = False, save_results = False,
-                        _print_clusterings = False, top = 10, exact = False, N_samples = None, train_epochs = 100):
+                        _print_clusterings = False, top = 10, exact = False, train_samples = 100, N_samples = None, train_epochs = 100):
     """
     A combined test script to test the exact IRM posterior values against those learned by the GFlowNet.
         It is flexible and can ignore test methods according to parameter values.
@@ -171,8 +171,9 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj
         _print_clusterings: (bool) Whether or not to print all possible clusterings and posteriors. Grows fast with N, mainly for debugging. 
 
         top: (int) Print the "top" clusterings.
-        exact: (bool) Calculate the exact probability distribution of the GFlowNet using the forward policy
-        N_samples: (int) Calculate the empirical probability distribution of the GFlowNet by sampling N_samples. If none, N_samples = 10*np.power(4,N)
+        exact: (bool) Calculate the exact probability distribution of the GFlowNet using the forward policy.
+        train_samples: (int) Number of samples used to train the network.
+        N_samples: (int) Calculate the empirical probability distribution of the GFlowNet by sampling N_samples. If none, N_samples = 10*np.power(4,N).
         train_epochs: (int) Train the network for "train_epochs". This is the major time sink.
 
     :soft return: If plots: returns plots comparing IRM posterior values for the different clusterings.
@@ -294,14 +295,15 @@ if __name__ == '__main__':
         _print_clusterings: (bool) Whether or not to print all possible clusterings and posteriors. Grows fast with N, mainly for debugging. 
 
         top: (int) Print the "top" clusterings.
-        exact: (bool) Calculate the exact probability distribution of the GFlowNet using the forward policy
-        N_samples: (int) Calculate the empirical probability distribution of the GFlowNet by sampling N_samples. If none, N_samples = 10*np.power(4,N)
+        exact: (bool) Calculate the exact probability distribution of the GFlowNet using the forward policy.
+        train_samples: (int) Number of samples used to train the network. 
+        N_samples: (int) Calculate the empirical probability distribution of the GFlowNet by sampling N_samples. If none, N_samples = 10*np.power(4,N).
         train_epochs: (int) Train the network for "train_epochs". This is the major time sink.
 
     :soft return: If plots: returns plots comparing IRM posterior values for the different clusterings.
     """
     t0 = time.process_time()
-    N =  4
+    N =  5
     a, b, alpha = 1, 1, 3 # 10000
     log = True
     seed = 46
@@ -313,8 +315,9 @@ if __name__ == '__main__':
 
     top = 10
     exact = True
+    train_samples = 100
     N_samples = None
-    train_epochs = 100
+    train_epochs = 200
     adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, alpha, log, seed)
 
     if plot_adj:
@@ -360,7 +363,7 @@ if __name__ == '__main__':
         # sys.exit()
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
-    X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
+    X = net.sample_forward(adjacency_matrix=A_random, epochs=train_samples)
 
     # Sample once before and after training
     for i in range(2):
