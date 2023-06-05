@@ -15,7 +15,7 @@ from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
 from GraphClustering.IRM_post import Gibbs_likelihood
 
-def gibbsSampler(N, graph, alpha):
+def gibbsSampler(N, graph, a, b, alpha):
     n_nodes = graph.shape[0]
     clusters = []
     for i in range(N):
@@ -27,7 +27,7 @@ def gibbsSampler(N, graph, alpha):
             _, counts = np.unique(new_cluster, return_counts=True)
             prior = np.concatenate((counts, np.array([alpha])))
             # Eq 34
-            likelihood = Gibbs_likelihood(perm_graph, new_cluster, log = False)
+            likelihood = Gibbs_likelihood(perm_graph, new_cluster, a, b, log = False)
             likelihood = np.array(likelihood)[0]
 
             post = prior * likelihood
@@ -36,15 +36,25 @@ def gibbsSampler(N, graph, alpha):
             new_assign = int(sum(np.random.rand() > cum_post))
             new_cluster = np.append(new_cluster, new_assign)
 
+        # Unscrambler
         clusters.append(np.zeros(n_nodes))
         for i, c in zip(permutation, new_cluster):
             clusters[-1][i] = c
 
-    return clusters
+    # Formatting clusters to 0-first.
+    clusters_formatted = []
+    for cluster in clusters:
+        _, idx = np.unique(cluster, return_index=True)
+        idx_order = list(cluster[np.sort(idx)])
+        cluster_f = np.array([idx_order.index(c) for c in cluster])
+        clusters_formatted.append(cluster_f)
+
+    return clusters_formatted
 
 if __name__ == '__main__':
     G = nx.karate_club_graph()
     Adj_karate = nx.adjacency_matrix(G).todense()
     Adj_karate = Adj_karate > 0
     graph = Adj_karate
-    clusters_sampled = gibbsSampler(100, graph, 5)
+    clusters_sampled = gibbsSampler(100, graph, 0.5, 0.5, 5)
+    print(clusters_sampled[:4])
