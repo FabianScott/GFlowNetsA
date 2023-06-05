@@ -325,7 +325,7 @@ class GraphNet:
         state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))  # Init_state
         prob_init = 0 if log else 1
         next_states_p[0] = {clustering_list: prob_init}  # Transition to state 0
-        for n_layer in tqdm(range(0, self.n_nodes)):
+        for n_layer in tqdm(range(0, self.n_nodes), desc='GFlowNet Output'):
             for clustering_list, prob in next_states_p[n_layer].items():
                 num_clusters = len(torch.unique(clustering_list)) - 1
                 clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
