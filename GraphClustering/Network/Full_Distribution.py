@@ -367,8 +367,6 @@ if __name__ == '__main__':
 
     # Sample once before and after training
     for i in range(2):
-        exact = True
-        train_epochs = 100
 
         if exact:
             cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix = A_random, log = log, fix=False) # Could also use fix.
