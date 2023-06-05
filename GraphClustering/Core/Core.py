@@ -313,11 +313,8 @@ class GraphNet:
         :param log: (bool) Whether or not to compute the function using log-probabilities. This doesn't work, as we have to sum probabilities for multiple avenues.
         :return: list of dictionaries of the form {clustering_matrix: probability}, s
         """
-        # print("Warning: The state representation in this function does not include the last node placed.")
-        # print(
-        #     "Warning: Because this function has to sum small probabilities, it will likely experience underflow even for meagre graphs.")
-        # print(
-        #     "Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This might take a while.")
+        print(
+            "Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This scales poorly with N and might take a while.")
         # from copy import deepcopy
 
         # Initialize the empty clustering and one-hot vector (source state)
