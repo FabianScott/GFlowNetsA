@@ -581,7 +581,7 @@ class MLP(nn.Module):
             prev_size = n_hidden
         self.layers.append(nn.Linear(prev_size, output_size))
         # To ensure positive output
-        self.layers.append(nn.Softplus())
+        # self.layers.append(nn.Linear())
 
     # Define the forward function of the neural network
     def forward(self, X):
@@ -892,7 +892,7 @@ if __name__ == '__main__':
     cluster_idxs = clusterIndex(clusters)
     clusters = len(clusters)
 
-    net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha, using_backward_model=True)
+    net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha, using_backward_model=False)
     X1 = net2.sample_forward(adjacency_matrix)
     net2.train(X1)
 
