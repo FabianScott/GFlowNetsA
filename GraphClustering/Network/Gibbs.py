@@ -36,9 +36,14 @@ def gibbsSampler(N, graph, alpha):
             new_assign = int(sum(np.random.rand() > cum_post))
             new_cluster = np.append(new_cluster, new_assign)
 
+        # Unscrambler
         clusters.append(np.zeros(n_nodes))
         for i, c in zip(permutation, new_cluster):
             clusters[-1][i] = c
+
+    # Formatting clusters to 0-first.
+    for cluster in clusters:
+
 
     return clusters
 
