@@ -13,9 +13,9 @@ from collections import defaultdict
 class GraphNet:
     def __init__(self,
                  n_nodes,
-                 a=1,
-                 b=1,
-                 alpha=1,
+                 a=1.,
+                 b=1.,
+                 alpha=1.,
                  termination_chance=None,
                  env=None,
                  n_layers=2,
@@ -54,7 +54,8 @@ class GraphNet:
                                   n_nodes=n_nodes,
                                   n_hidden=n_hidden,
                                   n_clusters=n_clusters,
-                                  n_layers=n_layers) if using_backward_model \
+                                  n_layers=n_layers,
+                                  softmax=True) if using_backward_model \
             else SimpleBackwardModel()
         self.mse_loss = nn.MSELoss()
         self.softmax = torch.nn.Softmax(dim=0)
@@ -92,7 +93,7 @@ class GraphNet:
         # if complete_graphs is None:
         #     print(f'Missing iterable indicating which graphs can be evaluated using IRM!')
         #     raise NotImplementedError
-
+        losses = torch.zeros(epochs)
         for epoch in tqdm(range(epochs)):
             # Permute every epoch
             permutation = torch.randperm(X.size()[0])
@@ -129,27 +130,12 @@ class GraphNet:
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
+            losses[epoch] = loss_this_epoch
             if verbose:
                 print(f'Loss at iteration {epoch + 1}:\t{loss_this_epoch}')
+        return losses
 
-    # def trajectory_balance_loss(self, final_states):
-    #     """
-    #     Using the log_sum_flows function, create a list of
-    #     losses to pass to the optimizer.
-    #     OBSOLETE FUNCTION!!
-    #     :param final_states: iterable of state vectors
-    #     :return: losses: list of losses
-    #     """
-    #     # final_states is a list of vectors representing states with at minimum one node missing
-    #     losses = []
-    #
-    #     for state in final_states:
-    #         # The probabilities are computed while creating the trajectories
-    #         trajectory, probs_log_sum_backward, probs_log_sum_forward = self.log_sum_flows(state)
-    #         loss = self.mse_loss(probs_log_sum_forward, probs_log_sum_backward)
-    #         losses.append(loss)
-    #
-    #     return losses
+
 
     def log_sum_flows(self, terminal_state):
         """
@@ -285,7 +271,7 @@ class GraphNet:
 
         final_states = torch.zeros((epochs, self.state_length))
 
-        for epoch in tqdm(range(epochs)):
+        for epoch in tqdm(range(epochs), desc='Sampling'):
             # Initialize the empty clustering and one-hot vector
             clustering_matrix = torch.zeros(self.size)
             clustering_list = torch.zeros(self.n_nodes)
@@ -412,7 +398,20 @@ class GraphNet:
         assert -0.1 < torch.logsumexp(net_posteriors, (0)) < 0.1
         return net_posteriors
 
-    def plot_full_distribution(self, adjacency_matrix, filename_save='', log=True):
+    def plot_full_distribution(self, adjacency_matrix, title='', filename_save='', log=True):
+        """
+        Plots the entire distribution of IRM values along
+        with the NN's output for visual comparison. Given
+        the adjacency matrix. The plot can be saved by
+        specifying a filename, the title can be specified
+        and 'log' determines whether to keep the values in
+        the log domain.
+        :param adjacency_matrix:
+        :param title:
+        :param filename_save:
+        :param log:
+        :return:
+        """
 
         clusters_all = allPermutations(self.n_nodes)
         Bell = len(clusters_all)
@@ -439,7 +438,7 @@ class GraphNet:
         plt.plot(values_real, "o", label='IRM Values')
         plt.plot(values_network, "o", label='GFlowNet values')
 
-        plt.title('Cluster Posterior Probabilites')
+        plt.title(title) if title else plt.title('Cluster Posterior Probabilites')
         plt.xlabel("Cluster Index")
         plt.ylabel("Posterior Probability")
         plt.xticks(np.arange(1, len(fixed_probs) + 1))
@@ -566,7 +565,7 @@ class GraphNet:
 
 
 class MLP(nn.Module):
-    def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3):
+    def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3, softmax=False):
         super().__init__()
         # takes adj_mat, clustering_mat, one-hot node_placed
         input_size = int(2 * n_nodes ** 2)
@@ -580,8 +579,9 @@ class MLP(nn.Module):
             self.layers.append(nn.ReLU())
             prev_size = n_hidden
         self.layers.append(nn.Linear(prev_size, output_size))
-        # To ensure positive output
-        # self.layers.append(nn.Linear())
+        # To ensure positive output (DO NOT ENSURE THIS!!!)
+        if softmax:
+            self.layers.append(nn.Softmax(dim=0))
 
     # Define the forward function of the neural network
     def forward(self, X):
@@ -887,16 +887,27 @@ if __name__ == '__main__':
     # import matplotlib.pyplot as plt
     N = 3
     a, b, alpha = 0.5, 0.5, 3
-    log = True
     adjacency_matrix, clusters = IRM_graph(alpha=alpha, a=a, b=b, N=N)
     cluster_idxs = clusterIndex(clusters)
-    clusters = len(clusters)
 
-    net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha, using_backward_model=False)
+    net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha, using_backward_model=True)
     X1 = net2.sample_forward(adjacency_matrix)
-    net2.train(X1)
+    losses2 = net2.train(X1, epochs=100)
+    net2.plot_full_distribution(adjacency_matrix)
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha)
     X = net.sample_forward(adjacency_matrix)
-    net.train(X, epochs=2)
+    losses1 = net.train(X, epochs=100)
     net.plot_full_distribution(adjacency_matrix)
+
+    plt.plot(losses1.detach().numpy(), label='Trajectory Balance Loss')
+    plt.plot(losses2.detach().numpy(), label='L2 Error')
+    plt.legend()
+    plt.title('MSE Error per iteration')
+    plt.xlabel('Iteration')
+    plt.ylabel('MSE Error')
+    plt.show()
+
+
+
+
