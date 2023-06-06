@@ -303,12 +303,12 @@ if __name__ == '__main__':
     :soft return: If plots: returns plots comparing IRM posterior values for the different clusterings.
     """
     t0 = time.process_time()
-    N =  4
+    N =  3
     a, b, alpha = 1, 1, 3 # 10000
     log = True
     seed = 50
     plot_adj = True
-    check_adj = True
+    check_adj = False
     plot_results = True
     save_results = False
     _print_clusterings = False
@@ -363,7 +363,7 @@ if __name__ == '__main__':
         # sys.exit()
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
-    X = net.sample_forward(adjacency_matrix=A_random, epochs=train_samples)
+    X = net.sample_forward(adjacency_matrix=A_random, n_samples = train_samples)
 
     # Sample once before and after training
     for i in range(2):
@@ -377,7 +377,7 @@ if __name__ == '__main__':
         if N_samples is None: N_samples = 10*np.power(4,N)
         if N_samples:
             clusters_all_tensor = torch.tensor(clusters_all+1)
-            X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
+            X1 = net.sample_forward(adjacency_matrix = A_random, n_samples = N_samples)
 
             sample_posterior_counts = torch.zeros(len(clusters_all))
 
