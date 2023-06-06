@@ -896,7 +896,7 @@ def allPosteriors(A_random, a, b, alpha, log, joint=False):
 
 
 # %% MAIN
-def compare_results(filename='Comparison.txt',
+def compare_results(filename,
                     min_N=3,
                     max_N=4,
                     max_epochs=100,

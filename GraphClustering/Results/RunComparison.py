@@ -1,4 +1,5 @@
 from GraphClustering.Core.Core import compare_results
 
 if __name__ == '__main__':
-    compare_results(filename='Comparison5.txt', min_N=7, max_N=7)
+    N = 6
+    compare_results(filename=f'Comparison{N}.txt', min_N=N, max_N=N)
