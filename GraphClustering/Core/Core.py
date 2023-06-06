@@ -208,6 +208,7 @@ class GraphNet:
 
                 output[possible_node, possible_cluster - 1] = self.model_forward.forward(temp_state)
             possible_node += 1
+        assert not any((torch.isinf(output).flatten() + torch.isnan(output).flatten()))
         return output
 
     # def get_all_probs(self, adjacency_matrix):
@@ -281,7 +282,8 @@ class GraphNet:
                 # Pass the state vector to the NN
                 clustering_list, num_clusters = self.get_clustering_list(clustering_matrix)
                 forward_flows = self.forward_flow(current_state)
-                forward_probs = self.softmax_matrix(forward_flows).flatten()
+                forward_probs = self.softmax_matrix(forward_flows.flatten())
+                assert int(sum(forward_probs < 0)) == 0
                 # Sample from the output and retrieve the indices of the chosen node and clustering
                 index_chosen = torch.multinomial(forward_probs, 1)
                 # First find the row and column we have chosen from the probs
@@ -938,15 +940,17 @@ def compare_results_small_graphs(filename,
 
         for N in tqdm(range(min_N, max_N + 1), desc='Iterating over N'):
             file.write(f'{N},')
+
             adjacency_matrix, clusters = IRM_graph(alpha=alpha, a=a, b=b, N=N)
             cluster_post = allPosteriors(adjacency_matrix, a, b, alpha, log=True, joint=False)
+            # Use the same net object, just tested every epoch_interval
+            net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha,
+                           using_backward_model=using_backward_model)
+            # Train using the sampled values before any training
+            X = net.sample_forward(adjacency_matrix)
 
             for epochs in range(0, max_epochs + 1, epoch_interval):
-                net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha,
-                               using_backward_model=using_backward_model)
-                X = net.sample_forward(adjacency_matrix)
-                losses = net.train(X, epochs=epochs)
-
+                net.train(X, epochs=epoch_interval)
                 cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
                                                                                 log=True,
                                                                                 fix=True)

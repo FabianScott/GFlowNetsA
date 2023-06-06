@@ -1,55 +1,76 @@
 from GraphClustering.Core.Core import GraphNet, torch_posterior, check_gpu
+from copy import deepcopy
 import networkx as nx
+import pandas as pd
+import numpy as np
 import torch
 
+
+def train_and_save(net, X1, Adj_karate, epoch_interval, n_samples, array1, array2, filename1, filename2, header, i):
+    net.train(X1, epochs=epoch_interval)  # Train an extra epoch interval
+    X2 = net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
+
+    net_values1, IRM_values1 = [], []
+
+    for state in X1:
+        net_values1.append(net.predict(state))
+        adjacency_matrix, clustering_matrix = net.get_matrices_from_state(state)
+        clustering_list, _ = net.get_clustering_list(clustering_matrix)
+        IRM_values1.append(torch_posterior(adjacency_matrix, clustering_list - 1))
+
+    difference1 = sum(abs(torch.tensor(net_values1) - torch.tensor(IRM_values1)))
+
+    net_values2, IRM_values2 = [], []
+    for state in X2:
+        # net_values2.append(net.predict(state))
+        adjacency_matrix, clustering_matrix = net.get_matrices_from_state(state)
+        clustering_list, _ = net.get_clustering_list(clustering_matrix)
+        IRM_values2.append(torch_posterior(adjacency_matrix, clustering_list - 1))
+
+    IRM_sum = sum(IRM_values2)  # Tracking the amount of flow the network samples
+
+    # Save the numbers every iteration
+    array1[i] = difference1
+    array2[i] = IRM_sum
+
+    df1 = pd.concat((pd.DataFrame(header), pd.DataFrame(array1)), axis=1)
+    df2 = pd.concat((pd.DataFrame(header), pd.DataFrame(array2)), axis=1)
+
+    df1.to_csv(filename1, index=False, header=False)
+    df2.to_csv(filename2, index=False, header=False)
+
+    # Use the previous samples for the next iteration
+    return X2
+
+
 if __name__ == '__main__':
+    """
+    Define the interval and step for epochs you want to test
+    on the karate club graph. The script saves two different
+    values, firstly, the difference in the network's prediction 
+    of each sampled state and the IRM value, secondly the sum
+    of the IRM values for the sampled states.
+    """
     check_gpu()
     n_samples = 1
-    epoch_interval = 1
+    epoch_interval = 10
     min_epochs = 0
     max_epochs = 50
 
-    G = nx.karate_club_graph()
-    Adj_karate = nx.adjacency_matrix(G).todense()
-    Adj_karate = torch.tensor(Adj_karate > 0)
+    Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
+    net = GraphNet(Adj_karate.shape[0])
+    X1 = net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
 
-    with open(f'Data/KarateResults_{min_epochs}_{max_epochs}_{n_samples}.txt', 'w') as file:
-        with open(f'Data/KarateResultsIRM_{min_epochs}_{max_epochs}_{n_samples}.txt', 'w') as file2:
-            for epochs in range(0, max_epochs + 1, epoch_interval):
-                file.write(f'{epochs},')
-            file.write('\n')
+    header = np.array([epochs for epochs in range(0, max_epochs + 1, epoch_interval)])
+    filename1 = f'Data/KarateResults_{min_epochs}_{max_epochs}_{n_samples}.csv'
+    filename2 = f'Data/KarateResultsIRM_{min_epochs}_{max_epochs}_{n_samples}.csv'
 
-            for epochs in range(0, max_epochs + 1, epoch_interval):
-                file2.write(f'{epochs},')
-            file2.write('\n')
+    array1 = np.zeros(len(header))
+    array2 = np.zeros(len(header))
 
-            for epochs in range(min_epochs, max_epochs + 1, epoch_interval):
-                net = GraphNet(len(G.nodes))
-                X1 = net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
-                net.train(X1, epochs=epochs)
-                X2 = net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
+    train_and_save(net, X1, Adj_karate, 0, n_samples, array1, array2, filename1, filename2, header, 0)
 
-                net_values1, IRM_values1 = [], []
-
-                for state in X1:
-                    net_values1.append(net.predict(state))
-                    adjacency_matrix, clustering_matrix = net.get_matrices_from_state(state)
-                    clustering_list, _ = net.get_clustering_list(clustering_matrix)
-                    IRM_values1.append(torch_posterior(adjacency_matrix, clustering_list - 1))
-
-                difference1 = sum(abs(torch.tensor(net_values1) - torch.tensor(IRM_values1)))
-                file.write(f'{difference1},')
-
-                net_values2, IRM_values2 = [], []
-                for state in X2:
-                    net_values2.append(net.predict(state))
-                    adjacency_matrix, clustering_matrix = net.get_matrices_from_state(state)
-                    clustering_list, _ = net.get_clustering_list(clustering_matrix)
-                    IRM_values2.append(torch_posterior(adjacency_matrix, clustering_list - 1))
-
-                # Should hopefully be positive and large, as the network samples more valuable clusters
-                difference_IRM = sum(torch.tensor(IRM_values2) - torch.tensor(IRM_values1))
-                file2.write(f'{difference_IRM},')
-
+    for i in range((max_epochs // epoch_interval) + 1):
+        X1 = train_and_save(net, X1, Adj_karate, epoch_interval, n_samples, array1, array2, filename1, filename2, header, i)
 
 
