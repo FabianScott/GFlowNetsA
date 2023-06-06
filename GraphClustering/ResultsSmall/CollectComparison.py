@@ -9,7 +9,7 @@ if __name__ == '__main__':
     df26 = pd.concat((df24, df5, df6))
     df26.to_csv('ResultTable2_6.csv', sep=',')
 
-    print_Latex_table(df26.values, significantFigures=3)
+    print_Latex_table(df26.values, significantFigures=3, headerRow=range(0, 101, 10), indexColumn=[str(el) + ' & ' for el in range(2,7)])
 
 
 
