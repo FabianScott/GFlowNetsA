@@ -5,15 +5,14 @@ import numpy as np
 import torch
 from scipy.special import logsumexp
 import matplotlib.pyplot as plt
+import sys
 try:
-    from GraphClustering import GraphNet # I created a launch.json to make this work for debugging sessions. It is infuriating that it doesn't work regularly. 
-except: # Do not change this if it is unnecessary for you. Directly picking the cwd for jupyter notebooks can be a massive hassle in VSCode.
-    import sys
+    from GraphClustering import GraphNet
+except:
     print("Appending to sys path")
-    sys.path.append(os.getcwd()) # This is really ugly. Will fix and make it pip installable when the rest works.
+    sys.path.append(os.getcwd()) # This is now obsolete, since I made the package pip installable. I will leave it in case it becomes necessary again.
     sys.path.append(os.path.join(os.getcwd(), "GraphClustering", "Core"))
     from GraphClustering import GraphNet
-
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
 import time
@@ -225,7 +224,7 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj
         # sys.exit()
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
-    X = net.sample_forward(adjacency_matrix=A_random, n_samples=100)
+    X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
 
     # Sample once before and after training
     for i in range(2):
@@ -239,7 +238,7 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj
         if N_samples is None: N_samples = 10*np.power(4,N)
         if N_samples:
             clusters_all_tensor = torch.tensor(clusters_all+1)
-            X1 = net.sample_forward(adjacency_matrix = A_random, n_samples= N_samples)
+            X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
 
             sample_posterior_counts = torch.zeros(len(clusters_all))
 
@@ -307,9 +306,9 @@ if __name__ == '__main__':
     N =  4
     a, b, alpha = 1, 1, 3 # 10000
     log = True
-    seed = 49
+    seed = 50
     plot_adj = True
-    check_adj = False
+    check_adj = True
     plot_results = True
     save_results = False
     _print_clusterings = False
@@ -318,7 +317,7 @@ if __name__ == '__main__':
     exact = False
     train_samples = 100
     N_samples = None
-    train_epochs = 200
+    train_epochs = 10
     adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, alpha, log, seed)
 
     if plot_adj:
@@ -364,7 +363,7 @@ if __name__ == '__main__':
         # sys.exit()
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
-    X = net.sample_forward(adjacency_matrix=A_random, n_samples=train_samples)
+    X = net.sample_forward(adjacency_matrix=A_random, epochs=train_samples)
 
     # Sample once before and after training
     for i in range(2):
@@ -378,7 +377,7 @@ if __name__ == '__main__':
         if N_samples is None: N_samples = 10*np.power(4,N)
         if N_samples:
             clusters_all_tensor = torch.tensor(clusters_all+1)
-            X1 = net.sample_forward(adjacency_matrix = A_random, n_samples= N_samples)
+            X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
 
             sample_posterior_counts = torch.zeros(len(clusters_all))
 
