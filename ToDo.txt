@@ -9,9 +9,6 @@ ToDo:
     - ( ) Implement simple flow difference train function (Take a step back)
         - ( ) Then, when that works, try trajectory balance loss
     
-    - ( ) Read Simple GFlowNet and Cube environment thoroughly and understand differences in sampling and train functions 
-    - ( ) Read Bengio GFlowNet tutorial to see, how they solve some of these problems
-        - ( ) That and the old code in the cube environment. 
     - ( ) Fix import sys path (Gabriel)
 
 General ToDo:
@@ -24,3 +21,15 @@ General ToDo:
         - Flow diagram of how the clustering is constructed
     - Pitch
     - Presentation
+
+Sørgsmål til Mikkel:
+    - The model trains towards the correct objective for small graphs. What should we do from here?
+        - Change state representation?
+        - Best ways to scale it?
+        - What should our main priority be according to Mikkel?
+    - Why is 1 cluster consistently so probable? Doesn't seem right. 
+    - Video pitch idea (manim animation).
+    - Report structure.
+    - Gibbs sampler
+    - Hør hvad målet med projektet er, og læg en blød timeplan. 
+
