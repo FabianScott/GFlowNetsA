@@ -224,7 +224,7 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj
         # sys.exit()
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
-    X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
+    X = net.sample_forward(adjacency_matrix=A_random, n_samples=100)
 
     # Sample once before and after training
     for i in range(2):
@@ -238,7 +238,7 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj
         if N_samples is None: N_samples = 10*np.power(4,N)
         if N_samples:
             clusters_all_tensor = torch.tensor(clusters_all+1)
-            X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
+            X1 = net.sample_forward(adjacency_matrix = A_random, n_samples= N_samples)
 
             sample_posterior_counts = torch.zeros(len(clusters_all))
 
@@ -363,7 +363,7 @@ if __name__ == '__main__':
         # sys.exit()
 
     net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
-    X = net.sample_forward(adjacency_matrix=A_random, epochs=train_samples)
+    X = net.sample_forward(adjacency_matrix=A_random, n_samples=train_samples)
 
     # Sample once before and after training
     for i in range(2):
@@ -377,7 +377,7 @@ if __name__ == '__main__':
         if N_samples is None: N_samples = 10*np.power(4,N)
         if N_samples:
             clusters_all_tensor = torch.tensor(clusters_all+1)
-            X1 = net.sample_forward(adjacency_matrix = A_random, epochs= N_samples)
+            X1 = net.sample_forward(adjacency_matrix = A_random, n_samples= N_samples)
 
             sample_posterior_counts = torch.zeros(len(clusters_all))
 

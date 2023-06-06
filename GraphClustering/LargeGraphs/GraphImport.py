@@ -10,5 +10,4 @@ Adj_karate = nx.adjacency_matrix(G).todense()
 Adj_karate = Adj_karate>0
 
 # C. elegans graph
-Adj_celegans = pd.read_csv("../GraphClustering/celegans277/celegans277matrix.csv").to_numpy()
-
+Adj_celegans = pd.read_csv("../celegans277/celegans277matrix.csv").to_numpy()
