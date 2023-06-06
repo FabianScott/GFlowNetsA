@@ -268,7 +268,7 @@ class GraphNet:
             n_samples = self.epochs
 
         final_states = torch.zeros((n_samples, self.state_length))
-        for epoch in tqdm(range(n_samples)) if timer else range(n_samples):
+        for epoch in tqdm(range(n_samples), desc='Sampling') if timer else range(n_samples):
             # Initialize the empty clustering and one-hot vector
             clustering_matrix = torch.zeros(self.size)
             clustering_list = torch.zeros(self.n_nodes)
@@ -442,6 +442,15 @@ class GraphNet:
         plt.show()
 
         return cluster_post, fixed_probs, sort_idx
+
+    def predict(self, x):
+        """
+        Given a state, return the forward model's
+        prediction
+        :param x:
+        :return:
+        """
+        return self.model_forward.forward(x)
 
     # %% Helpers:
     def get_clustering_matrix(self, clustering_list, number_of_clusters):
@@ -894,16 +903,19 @@ def allPosteriors(A_random, a, b, alpha, log, joint=False):
     return cluster_post
 
 
+def check_gpu():
+    print(f'Cuda is {"available" if torch.cuda.is_available() else "not available"}')
+
 # %% MAIN
-def compare_results(filename,
-                    min_N=3,
-                    max_N=4,
-                    max_epochs=100,
-                    epoch_interval=10,
-                    using_backward_model=False,
-                    a=0.5,
-                    b=0.5,
-                    alpha=3):
+def compare_results_small_graphs(filename,
+                                 min_N=3,
+                                 max_N=4,
+                                 max_epochs=100,
+                                 epoch_interval=10,
+                                 using_backward_model=False,
+                                 a=0.5,
+                                 b=0.5,
+                                 alpha=3):
     """
     Given a destination file, calculate and store the difference
     between the GFlowNet's output and the true IRM values,
@@ -945,6 +957,7 @@ def compare_results(filename,
 
 if __name__ == '__main__':
     # import matplotlib.pyplot as plt
+    check_gpu()
     N = 3
     a, b, alpha = 0.5, 0.5, 3
     adjacency_matrix, clusters = IRM_graph(alpha=alpha, a=a, b=b, N=N)
