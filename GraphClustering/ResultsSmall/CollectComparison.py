@@ -1,4 +1,4 @@
-from GraphClustering.Core.Core import compare_results
+from GraphClustering.Core.Core import compare_results_small_graphs
 import pandas as pd
 
 if __name__ == '__main__':
