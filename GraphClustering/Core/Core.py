@@ -906,23 +906,38 @@ def allPosteriors(A_random, a, b, alpha, log, joint=False):
 
 
 # %% EXTRAS
-def print_Latex_table(table, significantFigures=3):
+def print_Latex_table(table, significantFigures=3, headerRow=None, indexColumn=None):
     """
     Given a table (2D array), print the values rounded to
     a specified number of significant figures in a format
     one can cut and paste directly into a LateX table.
+    headerRow be an iterable of any stringable type, while
+    indexColumn must be an iterable of strings containing
+    the index and subsequent ' & '. The title of the indexes
+    is not printed, and must be added manually.
     :param table:
     :param significantFigures:
     :return:
     """
-    print('{' + '|' * table.shape[1] + '}')
-    for row in signif(table, significantFigures):
+    if indexColumn is None:
+        indexColumn = ['' for _ in table[:, 0]]
+    print('{' + '|c' * table.shape[1] + '|}')
+    if headerRow is not None:
         print('\\hline ')
         row_str = ''
+        for el in headerRow:
+            row_str += f'{el} & '
+        row_str = row_str[:-2] + '\\\\'
+        print(row_str)
+
+    for index, row in zip(indexColumn, signif(table, significantFigures)):
+        print('\\hline ')
+        row_str = index
         for el in row[:-1]:
             row_str += f'{el} & '
         row_str = row_str[:-2] + '\\\\'
         print(row_str)
+    print('\\hline ')
 
 
 def signif(x, p):
