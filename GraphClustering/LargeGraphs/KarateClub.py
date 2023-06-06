@@ -6,9 +6,32 @@ import numpy as np
 import torch
 
 
-def train_and_save(net, X1, Adj_karate, epoch_interval, n_samples, array1, array2, filename1, filename2, header, i):
-    net.train(X1, epochs=epoch_interval)  # Train an extra epoch interval
-    X2 = net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
+def train_and_save(net, X1, adjacency_matrix, epochs, n_samples, array1, array2, filename1, filename2, header, i):
+    """
+    Helper function to test the network on larger graphs.
+    Trains the network on the given sample, epochs
+    number of epochs. Then samples n_samples number of
+    new samples. On the X1 sample we calculate the network's
+    output values and find the difference between them and
+    the IRM values. For the new samples the IRM values alone
+    are calculated. Both values are then inserted into the
+    given arrays which are then converted into DataFrames
+    and saved to csv files.
+    :param net:
+    :param X1:
+    :param adjacency_matrix:
+    :param epochs:
+    :param n_samples:
+    :param array1:
+    :param array2:
+    :param filename1:
+    :param filename2:
+    :param header:
+    :param i: index at which to insert values
+    :return:
+    """
+    net.train(X1, epochs=epochs)  # Train an extra epoch interval
+    X2 = net.sample_forward(adjacency_matrix, n_samples=n_samples, timer=True)
 
     net_values1, IRM_values1 = [], []
 
@@ -70,7 +93,5 @@ if __name__ == '__main__':
 
     train_and_save(net, X1, Adj_karate, 0, n_samples, array1, array2, filename1, filename2, header, 0)
 
-    for i in range((max_epochs // epoch_interval) + 1):
+    for i in range(1, (max_epochs // epoch_interval) + 1):
         X1 = train_and_save(net, X1, Adj_karate, epoch_interval, n_samples, array1, array2, filename1, filename2, header, i)
-
-
