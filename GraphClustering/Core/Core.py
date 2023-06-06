@@ -915,12 +915,13 @@ def print_Latex_table(table, significantFigures=3):
     :param significantFigures:
     :return:
     """
-    print(f'|' * len(table.shape[1]))
-    for row in signif(table.values, significantFigures):
+    print('{' + '|' * table.shape[1] + '}')
+    for row in signif(table, significantFigures):
+        print('\\hline ')
         row_str = ''
         for el in row[:-1]:
             row_str += f'{el} & '
-        row_str = row_str[:-1] + '\\\\'
+        row_str = row_str[:-2] + '\\\\'
         print(row_str)
 
 
