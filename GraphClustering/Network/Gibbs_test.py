@@ -127,33 +127,6 @@ def clusters_all_index(clusters_all_tensor, specific_cluster_list):
     cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor, specific_cluster_list), dim=1) == 1)[0][0]
     return cluster_ind
 
-
-def plot_posterior(cluster_post, sort_idx=None, net_posteriors_numpy=None, sample_posteriors_numpy=None, log=True):
-    log_string = " Log " if log else " "
-    order = "index" if (sort_idx is None) else "Magnitude"
-    xlab = "Cluster Index" if (sort_idx is None) else "Sorted Cluster Index"
-    if sort_idx is None: sort_idx = torch.arange(len(cluster_post))
-
-    from_network = '' if ((net_posteriors_numpy is None) or (
-                sample_posteriors_numpy is None)) else ':\nExact and extracted from network'
-    f = plt.figure()
-    plt.title('Cluster Posterior' + log_string + 'Probabilites by ' + order + from_network)
-    if not log: cluster_post = np.exp(cluster_post)
-    plt.plot(cluster_post[sort_idx], "bo")
-    if net_posteriors_numpy is not None:
-        if not log: net_posteriors_numpy = np.exp(net_posteriors_numpy)
-        plt.plot(net_posteriors_numpy[sort_idx], "ro", markersize=4)
-    if sample_posteriors_numpy is not None:
-        if not log: sample_posteriors_numpy = np.exp(sample_posteriors_numpy)
-        plt.plot(sample_posteriors_numpy[sort_idx], "gx")
-    plt.xlabel(xlab)
-    plt.ylabel("Posterior Probability")
-    plt.legend(["Exact values", "From Network", "Sampled Empirically"])
-    # plt.ylim(0, -5)
-    plt.tight_layout()
-    return
-
-
 if __name__ == '__main__':
     N = 3
     a, b, alpha = 1, 1, 3  # 10000
