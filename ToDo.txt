@@ -25,11 +25,14 @@ General ToDo:
 Sørgsmål til Mikkel:
     - The model trains towards the correct objective for small graphs. What should we do from here?
         - Change state representation?
-        - Best ways to scale it?
+        - Best ways to scale it? It takes forever to sample from karate klub. NAN values in weights after some time. 
+            - All weights too small?
         - What should our main priority be according to Mikkel?
     - Why is 1 cluster consistently so probable? Doesn't seem right. 
     - Video pitch idea (manim animation).
     - Report structure.
     - Gibbs sampler
     - Hør hvad målet med projektet er, og læg en blød timeplan. 
+    - Fix .yml file...
+    - 
 

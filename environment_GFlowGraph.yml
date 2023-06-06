@@ -1,0 +1,15 @@
+name: "GFlow"
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.9
+  - numpy
+  - scipy
+  - matplotlib
+  - jupyter
+  - tqdm
+  - seaborn
+  - networkx
+# conda install pytorch torchvision torchaudio cpuonly -c pytorch

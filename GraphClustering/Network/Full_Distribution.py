@@ -11,6 +11,7 @@ except: # Do not change this if it is unnecessary for you. Directly picking the 
     import sys
     print("Appending to sys path")
     sys.path.append(os.getcwd()) # This is really ugly. Will fix and make it pip installable when the rest works.
+    sys.path.append(os.path.join(os.getcwd(), "GraphClustering", "Core"))
     from GraphClustering import GraphNet
 
 from GraphClustering import IRM_graph, clusterIndex
@@ -307,10 +308,10 @@ if __name__ == '__main__':
     a, b, alpha = 1, 1, 3 # 10000
     log = True
     seed = 49
-    plot_adj = False
+    plot_adj = True
     check_adj = False
-    plot_results = False
-    save_results = True
+    plot_results = True
+    save_results = False
     _print_clusterings = False
 
     top = 10
