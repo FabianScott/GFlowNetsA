@@ -1,6 +1,4 @@
 from GraphClustering.Core.Core import GraphNet, torch_posterior, check_gpu
-from copy import deepcopy
-import networkx as nx
 import pandas as pd
 import numpy as np
 import torch
