@@ -94,7 +94,7 @@ class GraphNet:
         #     print(f'Missing iterable indicating which graphs can be evaluated using IRM!')
         #     raise NotImplementedError
         losses = torch.zeros(epochs)
-        for epoch in tqdm(range(epochs)):
+        for epoch in tqdm(range(epochs), desc='Training'):
             # Permute every epoch
             permutation = torch.randperm(X.size()[0])
             loss_this_epoch = 0
@@ -134,8 +134,6 @@ class GraphNet:
             if verbose:
                 print(f'Loss at iteration {epoch + 1}:\t{loss_this_epoch}')
         return losses
-
-
 
     def log_sum_flows(self, terminal_state):
         """
@@ -256,22 +254,21 @@ class GraphNet:
     #
     #     return out
 
-    def sample_forward(self, adjacency_matrix, epochs=None):
+    def sample_forward(self, adjacency_matrix, n_samples=None, timer=False):
         """
         Given an adjacency matrix, cluster some graphs and return
         'epochs' number of final states reached using the current
         forward model. If epochs is left as None use self.epochs.
         :param adjacency_matrix: matrix (n_nodes, n_nodes)
-        :param epochs: (None or int)
+        :param n_samples: (None or int)
         :return:
         """
 
-        if epochs is None:
-            epochs = self.epochs
+        if n_samples is None:
+            n_samples = self.epochs
 
-        final_states = torch.zeros((epochs, self.state_length))
-
-        for epoch in tqdm(range(epochs), desc='Sampling'):
+        final_states = torch.zeros((n_samples, self.state_length))
+        for epoch in tqdm(range(n_samples), desc='Sampling') if timer else range(n_samples):
             # Initialize the empty clustering and one-hot vector
             clustering_matrix = torch.zeros(self.size)
             clustering_list = torch.zeros(self.n_nodes)
@@ -315,11 +312,8 @@ class GraphNet:
         :param log: (bool) Whether or not to compute the function using log-probabilities. This doesn't work, as we have to sum probabilities for multiple avenues.
         :return: list of dictionaries of the form {clustering_matrix: probability}, s
         """
-        # print("Warning: The state representation in this function does not include the last node placed.")
-        # print(
-        #     "Warning: Because this function has to sum small probabilities, it will likely experience underflow even for meagre graphs.")
-        # print(
-        #     "Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This might take a while.")
+        print(
+            "Warning: You are embarking on the long and arduous journey of calculating all the forward sample probabilities exactly. This scales poorly with N and might take a while.")
         # from copy import deepcopy
 
         # Initialize the empty clustering and one-hot vector (source state)
@@ -330,7 +324,7 @@ class GraphNet:
         state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))  # Init_state
         prob_init = 0 if log else 1
         next_states_p[0] = {clustering_list: prob_init}  # Transition to state 0
-        for n_layer in tqdm(range(0, self.n_nodes)):
+        for n_layer in tqdm(range(0, self.n_nodes), desc='GFlowNet Output'):
             for clustering_list, prob in next_states_p[n_layer].items():
                 num_clusters = len(torch.unique(clustering_list)) - 1
                 clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
@@ -355,7 +349,7 @@ class GraphNet:
                     new_state, temp_clustering_list = self.place_node(state, index_chosen,
                                                                       return_clustering_list=True)  # This ends up representing identical clusterings differently. We fix that.
                     temp_num_clusters = max(num_clusters, 1 + (index_chosen % (
-                                num_clusters + 1)))  # Just a clever way of figuring out how many clusters there are because I am being cheeky.
+                            num_clusters + 1)))  # Just a clever way of figuring out how many clusters there are because I am being cheeky.
                     temp_clustering_matrix = self.get_clustering_matrix(temp_clustering_list,
                                                                         temp_num_clusters)  # We could rewrite this function to not need the number of clusters
                     temp_clustering_list = self.get_clustering_list(temp_clustering_matrix)[0]
@@ -448,6 +442,15 @@ class GraphNet:
         plt.show()
 
         return cluster_post, fixed_probs, sort_idx
+
+    def predict(self, x):
+        """
+        Given a state, return the forward model's
+        prediction
+        :param x:
+        :return:
+        """
+        return self.model_forward.forward(x)
 
     # %% Helpers:
     def get_clustering_matrix(self, clustering_list, number_of_clusters):
@@ -564,6 +567,7 @@ class GraphNet:
         return f'GFlowNet Object with {self.n_nodes} nodes'
 
 
+# %% NN
 class MLP(nn.Module):
     def __init__(self, n_hidden, n_nodes, n_clusters, output_size=1, n_layers=3, softmax=False):
         super().__init__()
@@ -883,8 +887,77 @@ def allPermutations(n):
     return np.array(perm[-1]) - 1
 
 
+def allPosteriors(A_random, a, b, alpha, log, joint=False):
+    # Computing posteriors for all clusters.
+    N = len(A_random)
+    clusters_all = allPermutations(N)
+    Bell = len(clusters_all)
+    clusters_all_post = np.zeros(Bell)
+    for i, cluster in enumerate(clusters_all):
+        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b), alpha=torch.tensor(alpha),
+                                    log=True)
+        clusters_all_post[i] = posterior
+    if joint: return clusters_all_post  # Return the joint probability instead of normalizing.
+    cluster_post = clusters_all_post - logsumexp(clusters_all_post)  # Normalize them into proper log probabilities
+    if not log: cluster_post = np.exp(cluster_post)
+    return cluster_post
+
+
+def check_gpu():
+    print(f'Cuda is {"available" if torch.cuda.is_available() else "not available"}')
+
+# %% MAIN
+def compare_results_small_graphs(filename,
+                                 min_N=3,
+                                 max_N=4,
+                                 max_epochs=100,
+                                 epoch_interval=10,
+                                 using_backward_model=False,
+                                 a=0.5,
+                                 b=0.5,
+                                 alpha=3):
+    """
+    Given a destination file, calculate and store the difference
+    between the GFlowNet's output and the true IRM values,
+    trained on graphs of increasing N for an increasing number
+    of epochs.
+    :param filename:
+    :param min_N:
+    :param max_N:
+    :param max_epochs:
+    :param epoch_interval:
+    :param using_backward_model:
+    :return:
+    """
+    with open(filename, 'w') as file:
+        # Create the first line, rows are nodes, columns are epochs
+        file.write('N,')
+        for epochs in range(0, max_epochs + 1, epoch_interval):
+            file.write(f'{epochs},')
+        file.write('\n')
+
+        for N in tqdm(range(min_N, max_N + 1), desc='Iterating over N'):
+            file.write(f'{N},')
+            adjacency_matrix, clusters = IRM_graph(alpha=alpha, a=a, b=b, N=N)
+            cluster_post = allPosteriors(adjacency_matrix, a, b, alpha, log=True, joint=False)
+
+            for epochs in range(0, max_epochs + 1, epoch_interval):
+                net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha,
+                               using_backward_model=using_backward_model)
+                X = net.sample_forward(adjacency_matrix)
+                losses = net.train(X, epochs=epochs)
+
+                cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
+                                                                                log=True,
+                                                                                fix=True)
+                difference = sum(abs(cluster_post - fixed_probs.detach().numpy()))
+                file.write(f'{difference},')
+            file.write('\n')
+
+
 if __name__ == '__main__':
     # import matplotlib.pyplot as plt
+    check_gpu()
     N = 3
     a, b, alpha = 0.5, 0.5, 3
     adjacency_matrix, clusters = IRM_graph(alpha=alpha, a=a, b=b, N=N)
@@ -907,7 +980,5 @@ if __name__ == '__main__':
     plt.xlabel('Iteration')
     plt.ylabel('MSE Error')
     plt.show()
-
-
-
-
+    # Nodes, loss functions, training time,
+    # Compare with true IRM
