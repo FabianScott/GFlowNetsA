@@ -905,10 +905,42 @@ def allPosteriors(A_random, a, b, alpha, log, joint=False):
     return cluster_post
 
 
+# %% EXTRAS
+def print_Latex_table(table, significantFigures=3):
+    """
+    Given a table (2D array), print the values rounded to
+    a specified number of significant figures in a format
+    one can cut and paste directly into a LateX table.
+    :param table:
+    :param significantFigures:
+    :return:
+    """
+    print(f'|' * len(table.shape[1]))
+    for row in signif(table.values, significantFigures):
+        row_str = ''
+        for el in row[:-1]:
+            row_str += f'{el} & '
+        row_str = row_str[:-1] + '\\\\'
+        print(row_str)
+
+
+def signif(x, p):
+    """
+    Round an array x to p significant figures
+    :param x:
+    :param p:
+    :return:
+    """
+    x = np.asarray(x)
+    x_positive = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
+    mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
+    return np.round(x * mags) / mags
+
+
 def check_gpu():
     print(f'Cuda is {"available" if torch.cuda.is_available() else "not available"}')
 
-# %% MAIN
+
 def compare_results_small_graphs(filename,
                                  min_N=3,
                                  max_N=4,
@@ -959,6 +991,7 @@ def compare_results_small_graphs(filename,
             file.write('\n')
 
 
+# %% MAIN
 if __name__ == '__main__':
     # import matplotlib.pyplot as plt
     check_gpu()
