@@ -281,9 +281,9 @@ class GraphNet:
                 start = False
                 # Pass the state vector to the NN
                 clustering_list, num_clusters = self.get_clustering_list(clustering_matrix)
-                forward_flows = self.forward_flow(current_state)
-                forward_probs = self.softmax_matrix(forward_flows.flatten())
-                assert int(sum(forward_probs < 0)) == 0
+                forward_flows = self.forward_flow(current_state).flatten()
+                max_val = torch.max(forward_flows)
+                forward_probs = self.softmax_matrix(forward_flows - max_val)
                 # Sample from the output and retrieve the indices of the chosen node and clustering
                 index_chosen = torch.multinomial(forward_probs, 1)
                 # First find the row and column we have chosen from the probs
