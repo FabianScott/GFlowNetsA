@@ -684,7 +684,7 @@ def p_z(A, C, alpha=1, log=True):
     values, nk = np.unique(C,
                            return_counts=True)  # nk is an array of counts, so the number of elements in each cluster.
     K_bar = len(values) # number of non empty clusters.
-    assert K_bar == np.amax(C)
+    A = alpha*K_bar # Sum of the concentration parameters for each cluster.
 
     # nk (array of number of nodes in each cluster)
     log_p_z = (gammaln(A) + K_bar*(np.log(A)) - gammaln(A + N)) + np.sum(gammaln(nk))
@@ -752,6 +752,7 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose=Fa
     N = len(A)
     values, nk = torch.unique(C, return_counts=True)
     K_bar = len(values) # number of empty clusters.
+    A = alpha*K_bar # Sum of the concentration parameters for each cluster.
     
     log_p_z = (torch_gammaln(A) + K_bar*(torch.log(A)) - torch_gammaln(A + N)) + torch.sum(torch_gammaln(nk))
     # Return joint probability, which is proportional to the posterior
