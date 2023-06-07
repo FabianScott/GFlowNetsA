@@ -7,8 +7,8 @@ import pandas as pd
 import numpy as np
 import torch
 if __name__ == '__main__':
-    N = 3
-    compare_results_small_graphs(filename=f'Comparison{N}.txt', min_N=N, max_N=N)
+    N = 7
+    compare_results_small_graphs(filename=f'Comparison_{N}.txt', min_N=N, max_N=N)
 
 
 def train_and_save(net, X1, Adj_karate, epoch_interval, n_samples, array1, array2, df1, df2, filename1, filename2, header, i):

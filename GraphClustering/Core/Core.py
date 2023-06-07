@@ -573,7 +573,7 @@ class GraphNet:
 
     def save(self, prefix='GFlowNet', postfix=''):
         torch.save(self.model_forward.state_dict(), prefix + 'Forward' + postfix + '.pt')
-        torch.save(self.model_backward.state_dict(), prefix + 'Backward' + postfix + '.pt')
+        # torch.save(self.model_backward.state_dict(), prefix + 'Backward' + postfix + '.pt')
 
     def load_forward(self, prefix='GFlowNet', postfix=''):
         self.model_forward.load_state_dict(torch.load(prefix + 'Forward' + postfix + '.pt'))

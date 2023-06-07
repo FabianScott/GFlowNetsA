@@ -1,4 +1,7 @@
-from Core import GraphNet, torch_posterior, check_gpu
+try:
+    from Core import GraphNet, torch_posterior, check_gpu
+except ModuleNotFoundError:
+    from GraphClustering.Core.Core import GraphNet, torch_posterior, check_gpu
 from copy import deepcopy
 import networkx as nx
 import pandas as pd
@@ -75,7 +78,7 @@ if __name__ == '__main__':
     of the IRM values for the sampled states.
     """
     check_gpu()
-    n_samples = 100
+    n_samples = 10
     epoch_interval = 10
     min_epochs = 0
     max_epochs = 30
