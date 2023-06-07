@@ -115,8 +115,8 @@ def p_z(A, C, A_alpha=1, log=True):
     ----------
     A : Adjacency matrix (2D ndarray)
     C : clustering index array (ndarray)
-    alpha : float
-        Concentration of clusters.
+    A_alpha : float
+        Total concentration of clusters.
     log : Bool
         Whether or not to return log of the probability
 
@@ -125,7 +125,7 @@ def p_z(A, C, A_alpha=1, log=True):
     probability of cluster: float
     """
 
-    # Alpha is the concentration parameter. In theory, this could be different for the different clusters.
+    # A_alpha is the concentration parameter.
     # A constant concentration corrosponds to the chinese restaurant process. 
     N = len(A)
     values, nk = np.unique(C,
@@ -138,7 +138,7 @@ def p_z(A, C, A_alpha=1, log=True):
     return log_p_z if log else np.exp(log_p_z)
 
 
-def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True):
+def torch_posterior(A_in, C_in, a=None, b=None, A_alpha=None, log=True):
     # Likelihood part
     if a is None:
         a = torch.ones(1)
@@ -238,7 +238,7 @@ if __name__ == "__main__":
         for n in range(l * k):
             c = np.random.randint(0, high=K)
             C[n] = c  # Assign clusters at random.
-        probs_C_log[i] = p_x_giv_z(A_random, C, a=1 / 2, b=1 / 2) + p_z(A_random, C, alpha=1)
+        probs_C_log[i] = p_x_giv_z(A_random, C, a=1 / 2, b=1 / 2) + p_z(A_random, C, A_alpha=1)
         if i == 0: best_clustering, best_P = C, probs_C_log[i]
         if i > 0 and probs_C_log[i] > best_P: best_clustering, best_P = C, probs_C_log[i]
 
