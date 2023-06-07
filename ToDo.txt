@@ -10,6 +10,7 @@ ToDo:
         - ( ) Then, when that works, try trajectory balance loss
     
     - ( ) Fix import sys path (Gabriel)
+    - ( ) Solve problem in Karate Calculations where new network is trained on samples starting from scratch (Fabian)
 
 General ToDo:
     - Work on report
