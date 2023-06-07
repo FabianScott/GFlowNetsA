@@ -999,7 +999,7 @@ def compare_results_small_graphs(filename,
             # Train using the sampled values before any training
             X = net.sample_forward(adjacency_matrix)
 
-            adjacency_matrix_test, clusters_test = IRM_graph(alpha=alpha, a=a, b=b, N=N)
+            adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
 
             for epochs in range(0, max_epochs + 1, epoch_interval):
                 net.train(X, epochs=epoch_interval)

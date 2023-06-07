@@ -78,10 +78,10 @@ if __name__ == '__main__':
     of the IRM values for the sampled states.
     """
     check_gpu()
-    n_samples = 1000
+    n_samples = 2000
     epoch_interval = 5000
     min_epochs = 10000
-    max_epochs = 20000
+    max_epochs = 15000
 
     Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
     net = GraphNet(Adj_karate.shape[0])
