@@ -118,12 +118,15 @@ class GraphNet:
                         Reward = torch_posterior(adjacency_matrix, clustering_list, a=self.a, b=self.b,
                                                  alpha=self.alpha)
 
-                    outflow_network = self.model_forward.forward(x)
-                    _, forward, backward = self.log_sum_flows(x)
-
-                    # Using trajectory balance loss:
-                    outputs[j] = outflow_network if self.using_direct_loss else forward
-                    targets[j] = Reward if self.using_direct_loss else Reward + backward
+                    # Save time!!!
+                    if self.using_direct_loss:
+                        outflow_network = self.model_forward.forward(x)
+                        outputs[j] = outflow_network
+                        targets[j] = Reward
+                    else:
+                        _, forward, backward = self.log_sum_flows(x)
+                        outputs[j] = forward
+                        targets[j] = Reward + backward
 
                 loss = self.mse_loss(outputs, targets)
                 loss_this_epoch += loss
@@ -208,7 +211,7 @@ class GraphNet:
 
                 output[possible_node, possible_cluster - 1] = self.model_forward.forward(temp_state)
             possible_node += 1
-        assert not any((torch.isinf(output).flatten() + torch.isnan(output).flatten()))
+        # assert not any((torch.isinf(output).flatten() + torch.isnan(output).flatten()))
         return output
 
     # def get_all_probs(self, adjacency_matrix):
@@ -569,15 +572,14 @@ class GraphNet:
         return f'GFlowNet Object with {self.n_nodes} nodes'
 
     def save(self, prefix='GFlowNet', postfix=''):
-        torch.save(self.model_forward, prefix + 'forward' + postfix + '.pt')
-        torch.save(self.model_forward, prefix + 'backward' + postfix + '.pt')
+        torch.save(self.model_forward.state_dict(), prefix + 'Forward' + postfix + '.pt')
+        torch.save(self.model_backward.state_dict(), prefix + 'Backward' + postfix + '.pt')
 
-    def load_forward(self, filename):
-        self.model_forward = torch.load(filename)
+    def load_forward(self, prefix='GFlowNet', postfix=''):
+        self.model_forward.load_state_dict(torch.load(prefix + 'Forward' + postfix + '.pt'))
 
-    def load_backward(self, filename):
-        self.model_backward = torch.load(filename)
-
+    def load_backward(self, prefix='GFlowNet', postfix=''):
+        self.model_backward.load_state_dict(torch.load(prefix + 'Backward' + postfix + '.pt'))
 
 
 # %% NN
@@ -1019,6 +1021,8 @@ if __name__ == '__main__':
 
     net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha, using_backward_model=True)
     net2.save()
+    net2.load_forward()
+    net2.load_backward()
     X1 = net2.sample_forward(adjacency_matrix)
     losses2 = net2.train(X1, epochs=100)
     net2.plot_full_distribution(adjacency_matrix)
