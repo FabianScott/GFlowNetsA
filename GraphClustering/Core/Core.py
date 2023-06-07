@@ -668,18 +668,15 @@ def p_z(A, C, alpha=1, log=True):
     """
 
     # Alpha is the concentration parameter. In theory, this could be different for the different clusters.
-    # A constant concentration corrosponds to the chinese restaurant process.
-    K = np.amax(C)
+    # A constant concentration corrosponds to the chinese restaurant process. 
     N = len(A)
     values, nk = np.unique(C,
                            return_counts=True)  # nk is an array of counts, so the number of elements in each cluster.
-    K_bar = len(values) - K  # number of empty clusters.
-
-    log_labellings = gammaln(K + 1) - gammaln(K - K_bar + 1)
-    A = alpha * K
+    K_bar = len(values) # number of non empty clusters.
+    assert K_bar == np.amax(C)
 
     # nk (array of number of nodes in each cluster)
-    log_p_z = log_labellings * (gammaln(A) - gammaln(A + N)) * np.sum(gammaln(alpha + nk) - gammaln(alpha))
+    log_p_z = (gammaln(A) + K_bar*(np.log(A)) - gammaln(A + N)) + np.sum(gammaln(nk))
 
     return log_p_z if log else np.exp(log_p_z)
 
@@ -742,18 +739,10 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose=Fa
 
     # Prior part. P(z|K), så given K possible labellings.
     N = len(A)
-    K = torch.tensor(
-        N)  # The maximum number of possible labellings. This way it is consistent through all clusterings.
-    # values, nk = torch.unique(C, return_counts=True)
-    K_bar = len(values)  # number of non-empty clusters.
-
-    log_labellings = torch_gammaln(K + 1) - torch_gammaln(K - K_bar + 1)
-    A = alpha * K
-
-    # nk (array of number of nodes in each cluster)
-    log_p_z = log_labellings + (torch_gammaln(A) - torch_gammaln(A + N)) + torch.sum(
-        torch_gammaln(alpha + nk) - torch_gammaln(alpha))
-
+    values, nk = torch.unique(C, return_counts=True)
+    K_bar = len(values) # number of empty clusters.
+    
+    log_p_z = (torch_gammaln(A) + K_bar*(torch.log(A)) - torch_gammaln(A + N)) + torch.sum(torch_gammaln(nk))
     # Return joint probability, which is proportional to the posterior
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
 
