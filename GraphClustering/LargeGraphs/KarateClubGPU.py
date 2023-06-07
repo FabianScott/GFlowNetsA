@@ -76,9 +76,9 @@ if __name__ == '__main__':
     """
     check_gpu()
     n_samples = 100
-    epoch_interval = 25
+    epoch_interval = 10
     min_epochs = 0
-    max_epochs = 100
+    max_epochs = 30
 
     Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
     net = GraphNet(Adj_karate.shape[0])
@@ -91,7 +91,9 @@ if __name__ == '__main__':
     array1 = np.zeros(len(header))
     array2 = np.zeros(len(header))
 
-    train_and_save(net, X1, Adj_karate, 0, n_samples, array1, array2, filename1, filename2, header, 0)
+    train_and_save(net, X1, Adj_karate, min_epochs, n_samples, array1, array2, filename1, filename2, header, 0)
+    net.save(prefix=f'Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(0))
 
     for i in range(1, (max_epochs // epoch_interval) + 1):
         X1 = train_and_save(net, X1, Adj_karate, epoch_interval, n_samples, array1, array2, filename1, filename2, header, i)
+        net.save(prefix=f'Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(epoch_interval * i))
