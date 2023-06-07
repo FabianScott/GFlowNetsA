@@ -108,15 +108,15 @@ def Gibbs_likelihood(A, C, a = 0.5, b = 0.5, log = True):
 
 
 
-def p_z(A, C, alpha=1, log=True):
+def p_z(A, C, A_alpha=1, log=True):
     """Probability of clustering.
 
     Parameters
     ----------
     A : Adjacency matrix (2D ndarray)
     C : clustering index array (ndarray)
-    alpha : float
-        Concentration of clusters.
+    A_alpha : float
+        Total concentration of clusters.
     log : Bool
         Whether or not to return log of the probability
 
@@ -125,28 +125,27 @@ def p_z(A, C, alpha=1, log=True):
     probability of cluster: float
     """
 
-    # Alpha is the concentration parameter. In theory, this could be different for the different clusters.
+    # A_alpha is the concentration parameter.
     # A constant concentration corrosponds to the chinese restaurant process. 
     N = len(A)
     values, nk = np.unique(C,
                            return_counts=True)  # nk is an array of counts, so the number of elements in each cluster.
     K_bar = len(values) # number of non empty clusters.
-    A = alpha*K_bar # Sum of the concentration parameters for each cluster.
 
     # nk (array of number of nodes in each cluster)
-    log_p_z = (gammaln(A) + K_bar*(np.log(A)) - gammaln(A + N)) + np.sum(gammaln(nk))
+    log_p_z = (gammaln(A_alpha) + K_bar*(np.log(A_alpha)) - gammaln(A_alpha + N)) + np.sum(gammaln(nk))
 
     return log_p_z if log else np.exp(log_p_z)
 
 
-def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True):
+def torch_posterior(A_in, C_in, a=None, b=None, A_alpha=None, log=True):
     # Likelihood part
     if a is None:
         a = torch.ones(1)
     if b is None:
         b = torch.ones(1)
-    if alpha is None:
-        alpha = torch.ones(1)
+    if A_alpha is None:
+        A_alpha = torch.ones(1)
 
     A = torch.t_copy(A_in)
     C = torch.t_copy(torch.tensor(C_in, dtype=torch.int32))
@@ -174,9 +173,8 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True):
     N = len(A)
     values, nk = torch.unique(C, return_counts=True)
     K_bar = len(values) # number of empty clusters.
-    A = alpha*K_bar # Sum of the concentration parameters for each cluster.
     
-    log_p_z = (torch_gammaln(A) + K_bar*(torch.log(A)) - torch_gammaln(A + N)) + torch.sum(torch_gammaln(nk))
+    log_p_z = (torch_gammaln(A_alpha) + K_bar*(torch.log(A_alpha)) - torch_gammaln(A_alpha + N)) + torch.sum(torch_gammaln(nk))
 
     # Return joint probability, which is proportional to the posterior
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
@@ -240,7 +238,7 @@ if __name__ == "__main__":
         for n in range(l * k):
             c = np.random.randint(0, high=K)
             C[n] = c  # Assign clusters at random.
-        probs_C_log[i] = p_x_giv_z(A_random, C, a=1 / 2, b=1 / 2) + p_z(A_random, C, alpha=1)
+        probs_C_log[i] = p_x_giv_z(A_random, C, a=1 / 2, b=1 / 2) + p_z(A_random, C, A_alpha=1)
         if i == 0: best_clustering, best_P = C, probs_C_log[i]
         if i > 0 and probs_C_log[i] > best_P: best_clustering, best_P = C, probs_C_log[i]
 

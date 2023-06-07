@@ -15,7 +15,7 @@ class GraphNet:
                  n_nodes,
                  a=1.,
                  b=1.,
-                 alpha=1.,
+                 A_alpha=1.,
                  termination_chance=None,
                  env=None,
                  n_layers=2,
@@ -42,7 +42,7 @@ class GraphNet:
         self.n_clusters = n_clusters
         self.batch_size = batch_size
         self.n_nodes = n_nodes
-        self.a, self.b, self.alpha = torch.tensor([a]), torch.tensor([b]), torch.tensor([alpha])
+        self.a, self.b, self.A_alpha = torch.tensor([a]), torch.tensor([b]), torch.tensor([A_alpha])
         self.size = (n_nodes, n_nodes)
         self.model_forward = MLP(output_size=1,
                                  n_nodes=n_nodes,
@@ -116,7 +116,7 @@ class GraphNet:
                         clustering_list = self.get_clustering_list(clustering_matrix)[0] - 1
                         # Calculates IRM value of the state:
                         Reward = torch_posterior(adjacency_matrix, clustering_list, a=self.a, b=self.b,
-                                                 alpha=self.alpha)
+                                                 A_alpha=self.A_alpha)
 
                     # Save time!!!
                     if self.using_direct_loss:
@@ -418,7 +418,7 @@ class GraphNet:
 
         for i, cluster in enumerate(clusters_all):
             posterior = (torch_posterior(adjacency_matrix, cluster, a=torch.tensor(self.a), b=torch.tensor(self.b),
-                                         alpha=torch.tensor(self.alpha), log=True))
+                                        A_alpha=torch.tensor(self.A_alpha), log=True))
             clusters_all_post[i] = posterior
 
         cluster_post = clusters_all_post - logsumexp(clusters_all_post)
@@ -663,15 +663,15 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
     return logP_x_giv_z if log else np.exp(logP_x_giv_z)
 
 
-def p_z(A, C, alpha=1, log=True):
+def p_z(A, C, A_alpha=1, log=True):
     """Probability of clustering.
 
     Parameters
     ----------
     A : Adjacency matrix (2D ndarray)
     C : clustering index array (ndarray)
-    alpha : float
-        Concentration of clusters.
+    A_alpha : float
+        Total concentration of clusters.
     log : Bool
         Whether or not to return log of the probability
 
@@ -680,21 +680,20 @@ def p_z(A, C, alpha=1, log=True):
     probability of cluster: float
     """
 
-    # Alpha is the concentration parameter. In theory, this could be different for the different clusters.
+    # A_alpha is the total concentration parameter.
     # A constant concentration corrosponds to the chinese restaurant process. 
     N = len(A)
     values, nk = np.unique(C,
                            return_counts=True)  # nk is an array of counts, so the number of elements in each cluster.
     K_bar = len(values) # number of non empty clusters.
-    A = alpha*K_bar # Sum of the concentration parameters for each cluster.
 
     # nk (array of number of nodes in each cluster)
-    log_p_z = (gammaln(A) + K_bar*(np.log(A)) - gammaln(A + N)) + np.sum(gammaln(nk))
+    log_p_z = (gammaln(A_alpha) + K_bar*(np.log(A_alpha)) - gammaln(A_alpha + N)) + np.sum(gammaln(nk))
 
     return log_p_z if log else np.exp(log_p_z)
 
 
-def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose=False):
+def torch_posterior(A_in, C_in, a=None, b=None, A_alpha=None, log=True, verbose=False):
     """Calculate P(X,z): the joint probability of the graph and a particular clustering structure. This is proportional to the posterior.
     # This is calculated by integrating out all the internal cluster connection parameters.
 
@@ -706,8 +705,8 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose=Fa
     a and b: float
         Parameters for the beta distribution prior for the cluster connectivities.
         a = b = 1 yields a uniform distribution.
-    alpha : float
-        Concentration of clusters.
+    A_alpha : float
+        Total concentration of clusters.
     log : Bool
         Whether or not to return log of the probability
     verbose: Bool
@@ -724,8 +723,8 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose=Fa
         a = torch.ones(1)
     if b is None:
         b = torch.ones(1)
-    if alpha is None:
-        alpha = torch.ones(1)
+    if A_alpha is None:
+        A_alpha = torch.ones(1)
 
     A = torch.t_copy(A_in)
     C = torch.t_copy(torch.tensor(C_in, dtype=torch.int64))
@@ -754,9 +753,8 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True, verbose=Fa
     N = len(A)
     values, nk = torch.unique(C, return_counts=True)
     K_bar = len(values) # number of empty clusters.
-    A = alpha*K_bar # Sum of the concentration parameters for each cluster.
     
-    log_p_z = (torch_gammaln(A) + K_bar*(torch.log(A)) - torch_gammaln(A + N)) + torch.sum(torch_gammaln(nk))
+    log_p_z = (torch_gammaln(A_alpha) + K_bar*(torch.log(A_alpha)) - torch_gammaln(A_alpha + N)) + torch.sum(torch_gammaln(nk))
     # Return joint probability, which is proportional to the posterior
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
 
@@ -790,21 +788,21 @@ def ClusterGraph(l, k, p, q):
 
 
 # Collected function
-def IRM_graph(alpha, a, b, N):
-    clusters = CRP(alpha, N)
+def IRM_graph(A_alpha, a, b, N):
+    clusters = CRP(A_alpha, N)
     phis = Phi(clusters, a, b)
     Adj = Adj_matrix(phis, clusters)
     return Adj, clusters
 
 
 # Perform Chinese Restaurant Process
-def CRP(alpha, N):
+def CRP(A_alpha, N):
     # First seating
     clusters = [[1]]
     for i in range(2, N + 1):
         # Calculate cluster assignment as index to the list clusters.
         p = torch.rand(1)
-        probs = torch.tensor([len(cluster) / (i + alpha - 1) for cluster in clusters])
+        probs = torch.tensor([len(cluster) / (i - 1 + A_alpha) for cluster in clusters])
         cluster_assignment = sum(torch.cumsum(probs, dim=0) < p)
 
         # Make new table or assign to current
@@ -892,14 +890,14 @@ def allPermutations(n):
     return np.array(perm[-1]) - 1
 
 
-def allPosteriors(A_random, a, b, alpha, log, joint=False):
+def allPosteriors(A_random, a, b, A_alpha, log, joint=False):
     # Computing posteriors for all clusters.
     N = len(A_random)
     clusters_all = allPermutations(N)
     Bell = len(clusters_all)
     clusters_all_post = np.zeros(Bell)
     for i, cluster in enumerate(clusters_all):
-        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b), alpha=torch.tensor(alpha),
+        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b), A_alpha=torch.tensor(A_alpha),
                                     log=True)
         clusters_all_post[i] = posterior
     if joint: return clusters_all_post  # Return the joint probability instead of normalizing.
@@ -969,7 +967,7 @@ def compare_results_small_graphs(filename,
                                  use_new_graph_for_test=False,
                                  a=0.5,
                                  b=0.5,
-                                 alpha=3):
+                                 A_alpha=3):
     """
     Given a destination file, calculate and store the difference
     between the GFlowNet's output and the true IRM values,
@@ -993,10 +991,10 @@ def compare_results_small_graphs(filename,
         for N in tqdm(range(min_N, max_N + 1), desc='Iterating over N'):
             file.write(f'{N},')
 
-            adjacency_matrix, clusters = IRM_graph(alpha=alpha, a=a, b=b, N=N)
-            cluster_post = allPosteriors(adjacency_matrix, a, b, alpha, log=True, joint=False)
+            adjacency_matrix, clusters = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
+            cluster_post = allPosteriors(adjacency_matrix, a, b, A_alpha, log=True, joint=False)
             # Use the same net object, just tested every epoch_interval
-            net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha,
+            net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, A_alpha=A_alpha,
                            using_backward_model=using_backward_model)
             # Train using the sampled values before any training
             X = net.sample_forward(adjacency_matrix)
@@ -1023,11 +1021,11 @@ if __name__ == '__main__':
     # import matplotlib.pyplot as plt
     check_gpu()
     N = 3
-    a, b, alpha = 0.5, 0.5, 3
-    adjacency_matrix, clusters = IRM_graph(alpha=alpha, a=a, b=b, N=N)
+    a, b, A_alpha = 0.5, 0.5, 3
+    adjacency_matrix, clusters = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
     cluster_idxs = clusterIndex(clusters)
 
-    net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha, using_backward_model=True)
+    net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, A_alpha=A_alpha, using_backward_model=True)
     net2.save()
     net2.load_forward()
     net2.load_backward()
@@ -1035,7 +1033,7 @@ if __name__ == '__main__':
     losses2 = net2.train(X1, epochs=100)
     net2.plot_full_distribution(adjacency_matrix)
 
-    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha)
+    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, A_alpha=A_alpha)
     X = net.sample_forward(adjacency_matrix)
     losses1 = net.train(X, epochs=100)
     net.plot_full_distribution(adjacency_matrix)
