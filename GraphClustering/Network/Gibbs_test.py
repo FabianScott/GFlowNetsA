@@ -17,13 +17,17 @@ except:  # Do not change this if it is unnecessary for you. Directly picking the
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
 from GraphClustering.Network.Gibbs import gibbsSampler
-from GraphClustering.Network.Full_Distribution import get_clustering_matrix, get_clustering_list, allPermutations, allPosteriors, create_graph, scramble_graph, fix_net_clusters, clusters_all_index
+from GraphClustering.Network.Full_Distribution import get_clustering_matrix, get_clustering_list, allPermutations, allPosteriors, create_graph, scramble_graph, fix_net_clusters #, clusters_all_index
+
+def clusters_all_index_np(clusters_all, specific_cluster_list):
+    cluster_ind = np.argwhere(np.all(np.equal(clusters_all, specific_cluster_list), axis=1) == 1)[0][0]
+    return cluster_ind
 
 if __name__ == '__main__':
     N = 4
     a, b, A_alpha = 1, 1, 3  # 10000
     log = True
-    seed = 47
+    seed = 51
     plot = True
     adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, A_alpha, log, seed)
 
@@ -39,6 +43,12 @@ if __name__ == '__main__':
     A_random_numpy = A_random.numpy()
     clusters_sampled = gibbsSampler(N_samples, A_random_numpy, a, b, A_alpha)
     clusters_unique, clusters_count = np.unique(clusters_sampled, axis=0, return_counts=True)
+
+    clusters_count_ordered = np.zeros(len(clusters_all))
+    for c, n_k in zip(clusters_unique, clusters_count):
+        clusters_count_ordered[clusters_all_index_np(clusters_all, c)] = n_k
+    assert np.all(clusters_count == clusters_count_ordered)
+
     gibbs_post = np.log(clusters_count / N_samples)
 
     plt.plot(cluster_post[sort_idx], "bo")
