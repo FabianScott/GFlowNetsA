@@ -3,7 +3,6 @@ GraphClustering/Basic_IRM.py
 GraphClustering/IRM_generative_torch.py
 GraphClustering/IRM_post.py
 GraphClustering/__init__.py
-GraphClustering/hello_world.py
 GraphClustering.egg-info/PKG-INFO
 GraphClustering.egg-info/SOURCES.txt
 GraphClustering.egg-info/dependency_links.txt

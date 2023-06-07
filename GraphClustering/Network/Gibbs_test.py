@@ -128,7 +128,7 @@ def clusters_all_index(clusters_all_tensor, specific_cluster_list):
     return cluster_ind
 
 if __name__ == '__main__':
-    N = 3
+    N = 4
     a, b, alpha = 1, 1, 3  # 10000
     log = True
     seed = 46
@@ -143,7 +143,7 @@ if __name__ == '__main__':
     sort_idx = np.argsort(cluster_post)
 
     # Sample Gibbs
-    N_samples = 1000
+    N_samples = 2000
     A_random_numpy = A_random.numpy()
     clusters_sampled = gibbsSampler(N_samples, A_random_numpy, a, b, alpha)
     clusters_unique, clusters_count = np.unique(clusters_sampled, axis=0, return_counts=True)
