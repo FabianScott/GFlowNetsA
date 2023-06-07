@@ -108,7 +108,7 @@ def Gibbs_likelihood(A, C, a = 0.5, b = 0.5, log = True):
 
 
 
-def p_z(A, C, alpha=1, log=True):
+def p_z(A, C, A_alpha=1, log=True):
     """Probability of clustering.
 
     Parameters
@@ -131,10 +131,9 @@ def p_z(A, C, alpha=1, log=True):
     values, nk = np.unique(C,
                            return_counts=True)  # nk is an array of counts, so the number of elements in each cluster.
     K_bar = len(values) # number of non empty clusters.
-    A = alpha*K_bar # Sum of the concentration parameters for each cluster.
 
     # nk (array of number of nodes in each cluster)
-    log_p_z = (gammaln(A) + K_bar*(np.log(A)) - gammaln(A + N)) + np.sum(gammaln(nk))
+    log_p_z = (gammaln(A_alpha) + K_bar*(np.log(A_alpha)) - gammaln(A_alpha + N)) + np.sum(gammaln(nk))
 
     return log_p_z if log else np.exp(log_p_z)
 
@@ -145,8 +144,8 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True):
         a = torch.ones(1)
     if b is None:
         b = torch.ones(1)
-    if alpha is None:
-        alpha = torch.ones(1)
+    if A_alpha is None:
+        A_alpha = torch.ones(1)
 
     A = torch.t_copy(A_in)
     C = torch.t_copy(torch.tensor(C_in, dtype=torch.int32))
@@ -174,9 +173,8 @@ def torch_posterior(A_in, C_in, a=None, b=None, alpha=None, log=True):
     N = len(A)
     values, nk = torch.unique(C, return_counts=True)
     K_bar = len(values) # number of empty clusters.
-    A = alpha*K_bar # Sum of the concentration parameters for each cluster.
     
-    log_p_z = (torch_gammaln(A) + K_bar*(torch.log(A)) - torch_gammaln(A + N)) + torch.sum(torch_gammaln(nk))
+    log_p_z = (torch_gammaln(A_alpha) + K_bar*(torch.log(A_alpha)) - torch_gammaln(A_alpha + N)) + torch.sum(torch_gammaln(nk))
 
     # Return joint probability, which is proportional to the posterior
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)

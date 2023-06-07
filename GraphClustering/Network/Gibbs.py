@@ -15,7 +15,7 @@ from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
 from GraphClustering.IRM_post import Gibbs_likelihood
 
-def gibbsSampler(N, graph, a, b, alpha):
+def gibbsSampler(N, graph, a, b, A_alpha):
     n_nodes = graph.shape[0]
     clusters = []
     for i in range(N):
@@ -25,7 +25,7 @@ def gibbsSampler(N, graph, a, b, alpha):
         for node in permutation:
             # Eq 33
             _, counts = np.unique(new_cluster, return_counts=True)
-            prior = np.concatenate((counts, np.array([alpha])))
+            prior = np.concatenate((counts, np.array([A_alpha])))
             # Eq 34
             likelihood = Gibbs_likelihood(perm_graph, new_cluster, a, b, log = False)
             likelihood = np.array(likelihood)[0]

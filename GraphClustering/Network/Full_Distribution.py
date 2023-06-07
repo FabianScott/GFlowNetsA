@@ -55,25 +55,25 @@ def allPermutations(n):
 
     return np.array(perm[-1])-1
 
-def allPosteriors(A_random, a, b, alpha, log, joint = False):
+def allPosteriors(A_random, a, b, A_alpha, log, joint = False):
     # Computing posteriors for all clusters.
     N = len(A_random)
     clusters_all = allPermutations(N)
     Bell = len(clusters_all)
     clusters_all_post = np.zeros(Bell)
     for i, cluster in enumerate(clusters_all):
-        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b), alpha = torch.tensor(alpha), log= True)
+        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b), A_alpha = torch.tensor(A_alpha), log= True)
         clusters_all_post[i] = posterior
     if joint: return clusters_all_post # Return the joint probability instead of normalizing.
     cluster_post = clusters_all_post - logsumexp(clusters_all_post) # Normalize them into proper log probabilities
     if not log: cluster_post = np.exp(cluster_post)
     return cluster_post
 
-def create_graph(N, a, b, alpha, log = True, seed = 42):
+def create_graph(N, a, b, A_alpha, log = True, seed = 42):
     # Making the graph, and outputting cluster indexes.
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    adjacency_matrix, clusters = IRM_graph(alpha = alpha, a = a, b = b, N = N)
+    adjacency_matrix, clusters = IRM_graph(A_alpha = A_alpha, a = a, b = b, N = N)
     cluster_idxs = clusterIndex(clusters)
     clusters = len(clusters)
     return adjacency_matrix, cluster_idxs, clusters
@@ -150,16 +150,16 @@ def time_func(func, n = 1, *kwargs):
     t_total = t1-t0
     return t_total
 
-def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj = False, check_adj = False, plot_results = False, save_results = False,
+def full_distribution_test(N, a=1, b=1, A_alpha=1, log = True, seed = 42, plot_adj = False, check_adj = False, plot_results = False, save_results = False,
                         _print_clusterings = False, top = 10, exact = False, train_samples = 100, N_samples = None, train_epochs = 100):
     """
     A combined test script to test the exact IRM posterior values against those learned by the GFlowNet.
         It is flexible and can ignore test methods according to parameter values.
     :param
         N: (int) Number of nodes in the graph. The main scaling factor and time sink.
-        a, b, alpha: (float) Priors for the IRM. Determine both how the graph is generated from IRM and how IRM posteriors are calculated.
+        a, b, A_alpha: (float) Priors for the IRM. Determine both how the graph is generated from IRM and how IRM posteriors are calculated.
             Node links are beta distributed according to a and b.
-            The cluster concentration is distributed as a chinese restaurant process (CRP) with alpha as concentration parameter. 
+            The total cluster concentration is distributed as a chinese restaurant process (CRP) with A_alpha as the total concentration parameter. 
         log: (bool) Whether or not to compute the function using log-probabilities.
         seed: (int) Seed to ensure result consistency
         plot_adj: (bool) Whether or not to plot the original and scrambled adjacency matrices.
@@ -180,7 +180,7 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj
     """
     t0 = time.process_time()
 
-    adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, alpha, log, seed)
+    adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, A_alpha, log, seed)
 
     if plot_adj:
         print(cluster_idxs)
@@ -199,10 +199,10 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj
     
 
     clusters_all = allPermutations(N)
-    cluster_post = allPosteriors(A_random, a, b, alpha, log, joint = False)
+    cluster_post = allPosteriors(A_random, a, b, A_alpha, log, joint = False)
     if _print_clusterings:
         print("Log Probabilities: ", cluster_post)
-        print("Probabilities: ", allPosteriors(A_random, a, b, alpha, log = False, joint = False))
+        print("Probabilities: ", allPosteriors(A_random, a, b, A_alpha, log = False, joint = False))
         print(clusters_all)
     
     if plot_results: #IRM posterior values by index
@@ -223,7 +223,7 @@ def full_distribution_test(N, a=1, b=1, alpha=3, log = True, seed = 42, plot_adj
         plt.show()
         # sys.exit()
 
-    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
+    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, A_alpha = A_alpha)
     X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
 
     # Sample once before and after training
@@ -281,9 +281,9 @@ if __name__ == '__main__':
         It is flexible and can ignore test methods according to parameter values.
     :param
         N: (int) Number of nodes in the graph. The main scaling factor and time sink.
-        a, b, alpha: (float) Priors for the IRM. Determine both how the graph is generated from IRM and how IRM posteriors are calculated.
+        a, b, A_alpha: (float) Priors for the IRM. Determine both how the graph is generated from IRM and how IRM posteriors are calculated.
             Node links are beta distributed according to a and b.
-            The cluster concentration is distributed as a chinese restaurant process (CRP) with alpha as concentration parameter. 
+            The cluster concentration is distributed as a chinese restaurant process (CRP) with A_alpha as total concentration parameter. 
         log: (bool) Whether or not to compute the function using log-probabilities.
         seed: (int) Seed to ensure result consistency
         plot_adj: (bool) Whether or not to plot the original and scrambled adjacency matrices.
@@ -304,7 +304,7 @@ if __name__ == '__main__':
     """
     t0 = time.process_time()
     N =  3
-    a, b, alpha = 1, 1, 3 # 10000
+    a, b, A_alpha = 1, 1, 3 # 10000
     log = True
     seed = 50
     plot_adj = True
@@ -317,8 +317,8 @@ if __name__ == '__main__':
     exact = False
     train_samples = 100
     N_samples = None
-    train_epochs = 10
-    adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, alpha, log, seed)
+    train_epochs = 100
+    adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, A_alpha, log, seed)
 
     if plot_adj:
         print(cluster_idxs)
@@ -337,10 +337,10 @@ if __name__ == '__main__':
     
 
     clusters_all = allPermutations(N)
-    cluster_post = allPosteriors(A_random, a, b, alpha, log, joint = False)
+    cluster_post = allPosteriors(A_random, a, b, A_alpha, log, joint = False)
     if _print_clusterings:
         print("Log Probabilities: ", cluster_post)
-        print("Probabilities: ", allPosteriors(A_random, a, b, alpha, log = False, joint = False))
+        print("Probabilities: ", allPosteriors(A_random, a, b, A_alpha, log = False, joint = False))
         print(clusters_all)
     
     if plot_results: #IRM posterior values by index
@@ -362,7 +362,7 @@ if __name__ == '__main__':
         plt.show()
         # sys.exit()
 
-    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, alpha = alpha)
+    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, A_alpha = A_alpha)
     X = net.sample_forward(adjacency_matrix=A_random, n_samples = train_samples)
 
     # Sample once before and after training
