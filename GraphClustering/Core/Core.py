@@ -568,6 +568,17 @@ class GraphNet:
     def __str__(self):
         return f'GFlowNet Object with {self.n_nodes} nodes'
 
+    def save(self, prefix='GFlowNet', postfix=''):
+        torch.save(self.model_forward, prefix + 'forward' + postfix + '.pt')
+        torch.save(self.model_forward, prefix + 'backward' + postfix + '.pt')
+
+    def load_forward(self, filename):
+        self.model_forward = torch.load(filename)
+
+    def load_backward(self, filename):
+        self.model_backward = torch.load(filename)
+
+
 
 # %% NN
 class MLP(nn.Module):
@@ -1017,6 +1028,7 @@ if __name__ == '__main__':
     cluster_idxs = clusterIndex(clusters)
 
     net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, alpha=alpha, using_backward_model=True)
+    net2.save()
     X1 = net2.sample_forward(adjacency_matrix)
     losses2 = net2.train(X1, epochs=100)
     net2.plot_full_distribution(adjacency_matrix)
