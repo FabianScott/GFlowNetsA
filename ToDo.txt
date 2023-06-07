@@ -3,7 +3,7 @@ ToDo:
     - (G:X) Read Amortized clustering (Everyone)
         - ( ) Think about node-order invariant inputs
         - ( ) New symmetric data inputs. Simple variant: count number of edges.
-    - ( ) Check why 1 cluster is consitently very probable. Test Z0 (Total flow).
+    - ( ) Update to equation 25 (Gabriel). Test Z0 (Total flow).
     - ( ) Look at changes in the loss function.
 
     - ( ) Implement simple flow difference train function (Take a step back)
