@@ -964,6 +964,7 @@ def compare_results_small_graphs(filename,
                                  max_epochs=100,
                                  epoch_interval=10,
                                  using_backward_model=False,
+                                 use_new_graph_for_test=False,
                                  a=0.5,
                                  b=0.5,
                                  A_alpha=3):
@@ -998,9 +999,16 @@ def compare_results_small_graphs(filename,
             # Train using the sampled values before any training
             X = net.sample_forward(adjacency_matrix)
 
+            adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
+
             for epochs in range(0, max_epochs + 1, epoch_interval):
                 net.train(X, epochs=epoch_interval)
-                cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
+                if use_new_graph_for_test:
+                    cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix_test,
+                                                                                    log=True,
+                                                                                    fix=True)
+                else:
+                    cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
                                                                                 log=True,
                                                                                 fix=True)
                 difference = sum(abs(cluster_post - fixed_probs.detach().numpy()))
