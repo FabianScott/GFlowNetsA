@@ -258,7 +258,7 @@ class GraphNet:
     #
     #     return out
 
-    def sample_forward(self, adjacency_matrix, n_samples=None, timer=False):
+    def sample_forward(self, adjacency_matrix, n_samples=None, timer=False, saveFilename=None):
         """
         Given an adjacency matrix, cluster some graphs and return
         'epochs' number of final states reached using the current
@@ -303,6 +303,9 @@ class GraphNet:
             # Catch empty clusterings to see why they occur
             assert sum(clustering_list) >= self.n_nodes
             final_states[epoch] = current_state
+
+        if saveFilename is not None:
+            torch.save(final_states, saveFilename + '.pt')
         return final_states
 
     def full_sample_distribution_G(self, adjacency_matrix, log=True, fix=False):
@@ -581,6 +584,8 @@ class GraphNet:
     def load_backward(self, prefix='GFlowNet', postfix=''):
         self.model_backward.load_state_dict(torch.load(prefix + 'Backward' + postfix + '.pt'))
 
+    def load_samples(self, filename):
+        return torch.load(filename)
 
 # %% NN
 class MLP(nn.Module):
