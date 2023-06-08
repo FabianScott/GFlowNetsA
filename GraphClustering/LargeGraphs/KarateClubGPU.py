@@ -79,9 +79,9 @@ if __name__ == '__main__':
     """
     check_gpu()
     n_samples = 2000
-    epoch_interval = 5000
-    min_epochs = 10000
-    max_epochs = 15000
+    epoch_interval = 500
+    min_epochs = 1000
+    max_epochs = 1500
 
     Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
     net = GraphNet(Adj_karate.shape[0])
