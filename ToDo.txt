@@ -24,16 +24,22 @@ General ToDo:
     - Presentation
 
 Sørgsmål til Mikkel:
-    - The model trains towards the correct objective for small graphs. What should we do from here?
-        - Change state representation?
-        - Best ways to scale it? It takes forever to sample from karate klub. NAN values in weights after some time. 
-            - All weights too small?
-        - What should our main priority be according to Mikkel?
-    - Why is 1 cluster consistently so probable? Doesn't seem right. 
+    - GFlowNets
+        - Vertice values are trained and not edges. We then flow according to them.
+            - This is incorrect right? Best way to proceed. 
+        - Network currently choses node in action step. Set node order, like other papers?
+            - Randomly permute node order? Risk of overfitting to node order?
+    - Gibbs sampler
+        - also takes a specific node order. Permute randomly?
+        - Why burn in? How?
+        - Ask about daig part of matrix product. Do you assume 0 diagonal in adjacency matrix?
+        - Make efficient by reusing link counts. I can look at that in the future. 
+    - Hvor lang synes du rapporten skal være?
     - Video pitch idea (manim animation).
     - Report structure.
-    - Gibbs sampler
-    - Hør hvad målet med projektet er, og læg en blød timeplan. 
-    - Fix .yml file...
+    - Gibbs sampler. 
     - 
+
+    - Define Matlab like onehot clustering matrix. C matrix is the product of that and itself. 
+    - Generative IRM process, but shown using a graph. 
 

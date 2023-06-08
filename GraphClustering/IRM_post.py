@@ -67,6 +67,7 @@ def r_nl(A, C, n, l):
     return r_nl
 
 def Gibbs_likelihood(A, C, a = 0.5, b = 0.5, log = True):
+    # WRONG!!!
     """Calculate Gibbs_likelyhood as presented in Mikkel's paper.
 
     Parameters
@@ -84,12 +85,88 @@ def Gibbs_likelihood(A, C, a = 0.5, b = 0.5, log = True):
     ----------
     Array of Gibbs_likelyhoods for each cluster k and +1 for a new cluster: float
     """ 
+
+    # Here lies the old incorrect version as a note.
     if C.size == 0: return (np.zeros(1) if log else np.ones(1))
     
     C = C.astype(int)
     values, nk = np.unique(C, return_counts=True)
     A = A[:(len(C)+1),:(len(C)+1)]
-    np.einsum("ii->i", A)[...] = 0
+    np.einsum("ii->i", A)[...] = 0 # Beware. This is wrong. 
+    
+    n_C = np.identity(C.max() + 1, int)[C] # create node-cluster adjacency matrix
+    n_C = np.vstack((n_C, np.zeros(C.max()+1, int))) # add an empty last row as a place holder for the last node. 
+    n_C = np.hstack((n_C, np.zeros((len(C)+1,1), int))) # add an empty last partition with no nodes in it for the new cluster option.
+    nk = np.append(nk, 0) # The last extra cluster has no nodes.
+    r_nl_matrix = (A @ n_C) # node i connections to each cluster. 
+    r_nl = r_nl_matrix [len(C)] # just node n. (Array)
+
+    m_kl = n_C.T @ A @ n_C
+    np.einsum("ii->i", m_kl)[...] //= 2
+    m_bar_kl = np.outer(nk, nk) - np.diag(nk * (nk + 1) / 2) - m_kl
+
+    Gibbs_log_likelyhood = np.sum(betaln(m_kl + r_nl + a, m_bar_kl + nk - r_nl + b) - betaln(m_kl + a, m_bar_kl + b), axis=1).reshape((-1))
+
+    return Gibbs_log_likelyhood if log else np.exp(Gibbs_log_likelyhood)
+
+def Gibbs_sample(A, T, burn_in_buffer = None, sample_interval = 10, seed = 42, a = 1, b = 1, A_alpha = 1):
+    """Perform one Gibbs sweep with a specified node order to yield one sampled clustering.
+
+    Parameters
+    ----------
+    A : (2D ndarray) Adjacency matrix.
+    T : (int) Number of Gibbs Sweeps.
+    burn_in_buffer : (int) Number of initial samples to discard. Default is T//2.
+    sample_interval : (int) The sweep interval with which to save clusterings.
+    seed : (int) Seed used for random node permutations.
+    a, b and A_alpha: float
+        Parameters for the beta distribution prior for the cluster connectivities and concentration. 
+        a = b = 1 yields a uniform distribution.
+        A_alpha is the total cluster concentration parameter.
+
+    Return
+    ----------
+    Array of Gibbs_likelyhoods for each cluster k and +1 for a new cluster: float
+    """ 
+    A[np.diag_indices_from(A)] = 0 # Assume nodes aren't connected to themselves. Equivalent to np.einsum("ii->i", A)[...] = 0
+
+    N = A.shape[0]
+    z = np.zeros((N,N)) # Take all the memory I need, which is not that much.
+    z[:, 0] = 1 # Initialize everthing to be in the first cluster.
+    np.random.seed(seed=seed) # torch.manual_seed(seed) torch.cuda.manual_seed(seed)
+    for t in range(T):
+        node_order = np.random.permutation(N) # I could also make the full (N,T) permutations matrix to exchange speed for memory
+        for i, n in enumerate(node_order):
+            nn = np.delete(node_order, i, axis = 0)
+            K = z.shape[1] # Number of clusters
+            m = np.sum(z[nn,:], axis = 0) # Could also use my old cluster representation, which is probably faster.
+            m_kl = z[nn,:].T @ A[nn][:,nn] @ z[nn,:]
+            m_kl[np.diag_indices_from(m_kl)] //= 2 # The edges are undirected and the previous line counts edges within a cluster twice as if directed. Compensate for that here.
+
+            m_bar_kl = np.outer(m, m) - np.diag(m * (m + 1) / 2) - m_kl
+            r_nl = (z[nn,:].T @ A[nn,n]) # node n connections to each cluster (l). 
+
+            n_C = z
+            r_nl_matrix = (A @ n_C)
+            assert np.all(r_nl == r_nl_matrix[n])
+
+            # Calculate the big log posterior for the cluster allocation for node n. (k+1 possible cluster allocations)
+            logP = np.sum(np.vstack((betaln(m_kl + r_nl + a, m_bar_kl + m - r_nl + b) - betaln(m_kl + a, m_bar_kl + b), \
+                                     betaln(r_nl+a, m-r_nl+b)-betaln(a,b))), axis=1) + np.log(np.append(m,A_alpha)) # k are rows and l are colums. Sum = log product over l.
+            
+            P = np.exp(logP-np.max(logP)) # Avoid underflow and turn into probabilities
+            cum_post = np.cumsum(P)
+            new_assign = int(np.sum(np.random.rand() > cum_post)) # Calculate which cluster by finding where in the probability distribution rand() lands.
+            z[n,:] = 0
+            z[n,new_assign] = 1
+            
+            new_cluster = np.append(new_cluster, new_assign)
+
+
+    C = C.astype(int)
+    values, nk = np.unique(C, return_counts=True)
+    A = A[:(len(C)+1),:(len(C)+1)]
+    np.einsum("ii->i", A)[...] = 0 # Beware. This is wrong. 
     
     n_C = np.identity(C.max() + 1, int)[C] # create node-cluster adjacency matrix
     n_C = np.vstack((n_C, np.zeros(C.max()+1, int))) # add an empty last row as a place holder for the last node. 
@@ -220,6 +297,9 @@ if __name__ == "__main__":
     k = 10 # k for nodes in clsuters l*k becomes nodes in total
 
     A_adj = ClusterGraph(l, k, 0.9, 0.01)
+    
+    A_adj = np.array([[1,0,1,1],[0,0,1,0],[1,1,1,0],[1,0,0,1]])
+    Gibbs_sample(A_adj, T = 100, burn_in_buffer = None, sample_interval = 10, seed = 42, a = 1, b = 1, A_alpha = 1)
 
     idxs = np.random.permutation(np.arange(l * k))
     A_random = A_adj[idxs][:, idxs]  # It makes sense to permute both axes in the same way.
