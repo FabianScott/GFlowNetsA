@@ -303,12 +303,12 @@ if __name__ == '__main__':
     :soft return: If plots: returns plots comparing IRM posterior values for the different clusterings.
     """
     t0 = time.process_time()
-    N =  3
-    a, b, A_alpha = 1, 1, 3 # 10000
+    N =  4
+    a, b, A_alpha = 1, 1, 1 # 10000
     log = True
-    seed = 50
+    seed = 65
     plot_adj = True
-    check_adj = False
+    check_adj = True
     plot_results = True
     save_results = False
     _print_clusterings = False
