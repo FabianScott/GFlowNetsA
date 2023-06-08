@@ -258,7 +258,7 @@ class GraphNet:
     #
     #     return out
 
-    def sample_forward(self, adjacency_matrix, n_samples=None, timer=False):
+    def sample_forward(self, adjacency_matrix, n_samples=None, timer=False, saveFilename=None):
         """
         Given an adjacency matrix, cluster some graphs and return
         'epochs' number of final states reached using the current
@@ -303,6 +303,9 @@ class GraphNet:
             # Catch empty clusterings to see why they occur
             assert sum(clustering_list) >= self.n_nodes
             final_states[epoch] = current_state
+
+        if saveFilename is not None:
+            torch.save(final_states, saveFilename + '.pt')
         return final_states
 
     def full_sample_distribution_G(self, adjacency_matrix, log=True, fix=False):
@@ -580,6 +583,128 @@ class GraphNet:
 
     def load_backward(self, prefix='GFlowNet', postfix=''):
         self.model_backward.load_state_dict(torch.load(prefix + 'Backward' + postfix + '.pt'))
+
+    def load_samples(self, filename):
+        return torch.load(filename)
+
+
+class GraphNetNodeOrder(GraphNet):
+    def __init__(self, n_nodes, **kwargs):
+        super().__init__(n_nodes, **kwargs)
+
+    def log_sum_flows(self, terminal_state):
+        """
+        Given a terminal state, calculate the log sum of the flow
+        probabilities backwards and forward along with the trajectory
+        indicating when what node was removed by sampling from the
+        backward model.
+        :param terminal_state:
+        :return: trajectory (n_nodes, n_nodes),
+                forward_log_sum_probs (int), backward_log_sum_probs (int)
+        """
+        # The terminal_state does encode information about what node was most recently clustered
+        adjacency_matrix, clustering_matrix = self.get_matrices_from_state(terminal_state)
+        # To prevent changes to the original values??
+        adjacency_matrix, clustering_matrix = adjacency_matrix.clone(), clustering_matrix.clone()
+        current_clustering_list, number_of_clusters = self.get_clustering_list(clustering_matrix)
+        prob_log_sum_forward = torch.zeros(1)
+        # Need IRM to add here, leave out for now
+        prob_log_sum_backward = torch.zeros(1)
+        # Will track the order in which nodes are removed from the graph
+        trajectory = torch.zeros(self.n_nodes)
+        node_no = 1
+        current_state = terminal_state
+
+        while torch.sum(current_clustering_list).item():
+            probs_backward = self.model_backward.forward(current_state) if self.using_backward_model \
+                else self.model_backward.forward(clustering_matrix)
+            index_chosen = torch.multinomial(probs_backward, 1)
+            prob_log_sum_backward += torch.log(probs_backward[index_chosen])
+            # Remove the node from the clustering
+            clustering_matrix[index_chosen] = 0
+            clustering_matrix[:, index_chosen] = 0
+            # Get the forward flow
+            current_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
+            forward_probs = self.forward_flow(current_state)
+
+            # Cluster labels are 1-indexed
+            cluster_origin_index = current_clustering_list[index_chosen] - 1
+            # Now calculate the forward flow into the state we passed to the backward model:
+            current_clustering_list, _ = self.get_clustering_list(clustering_matrix)
+            node_index_forward = torch.sum(current_clustering_list[:index_chosen] == 0)
+            prob_log_sum_forward += torch.log(forward_probs[(int(node_index_forward), int(cluster_origin_index[0]))])
+            trajectory[index_chosen] = node_no
+            node_no += 1
+
+        return trajectory, prob_log_sum_forward, prob_log_sum_backward + self.z0
+
+    def forward_flow(self, state, node_index=0):
+        """
+        Given a state, return the forward flow from the current
+        forward model.
+        :param state: vector ((n_nodes^2) * 2,)
+        :return:
+        """
+        # return the forward flow for all possible actions (choosing node, assigning cluster)
+        # using the idea that the NN rates each possible future state. Variable output size!!
+        current_adjacency, current_clustering = self.get_matrices_from_state(state)
+        # number of clusters starts at 1
+        clustering_list, number_of_clusters = self.get_clustering_list(current_clustering)
+
+        output = torch.zeros(number_of_clusters)
+
+        for possible_cluster in range(1, number_of_clusters + 1):
+            temp_clustering_list = torch.clone(clustering_list)
+            temp_clustering_list[node_index] = possible_cluster
+
+            temp_clustering = self.get_clustering_matrix(temp_clustering_list, number_of_clusters)
+            temp_state = torch.concat((current_adjacency.flatten(), temp_clustering.flatten()))
+            output[possible_cluster - 1] = self.model_forward.forward(temp_state)
+        # assert not any((torch.isinf(output).flatten() + torch.isnan(output).flatten()))
+        return output
+
+    def sample_forward(self, adjacency_matrix, n_samples=None, timer=False, saveFilename=None):
+        """
+        Given an adjacency matrix, cluster some graphs and return
+        'epochs' number of final states reached using the current
+        forward model. If epochs is left as None use self.epochs.
+        :param adjacency_matrix: matrix (n_nodes, n_nodes)
+        :param n_samples: (None or int)
+        :return:
+        """
+
+        if n_samples is None:
+            n_samples = self.epochs
+
+        final_states = torch.zeros((n_samples, self.state_length))
+        for epoch in tqdm(range(n_samples), desc='Sampling') if timer else range(n_samples):
+            # Initialize the empty clustering and one-hot vector
+            clustering_matrix = torch.zeros(self.size)
+            clustering_list = torch.zeros(self.n_nodes)
+            current_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
+            # Each iteration has self.termination_chance of being the last, and we ensure no empty states
+            for node_index in np.random.permutation(self.n_nodes):
+                # Pass the state vector to the NN
+                clustering_list, num_clusters = self.get_clustering_list(clustering_matrix)
+                forward_flows = self.forward_flow(current_state, node_index=node_index).flatten()
+                max_val = torch.max(forward_flows)
+                forward_probs = self.softmax_matrix(forward_flows - max_val)
+                # Sample from the output and retrieve the indices of the chosen node and clustering
+                index_chosen = torch.multinomial(forward_probs, 1)
+                # First find the row and column we have chosen from the probs
+                cluster_index_chosen = index_chosen % num_clusters
+                # Next, increment the node chosen by the number of nodes ahead of it that were already in the graph
+                # Labels are 1-indexed, indices are 0 indexed
+                clustering_list[node_index] = torch.tensor(cluster_index_chosen + 1, dtype=torch.float32)
+                clustering_matrix = self.get_clustering_matrix(clustering_list, num_clusters)
+                current_state = torch.concat((adjacency_matrix.flatten(), clustering_matrix.flatten()))
+            # Catch empty clusterings to see why they occur
+            assert sum(clustering_list) >= self.n_nodes
+            final_states[epoch] = current_state
+
+        if saveFilename is not None:
+            torch.save(final_states, saveFilename + '.pt')
+        return final_states
 
 
 # %% NN
