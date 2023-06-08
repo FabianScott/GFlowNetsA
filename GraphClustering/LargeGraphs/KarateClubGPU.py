@@ -1,7 +1,7 @@
 try:
-    from Core import GraphNet, torch_posterior, check_gpu
+    from Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu
 except ModuleNotFoundError:
-    from GraphClustering.Core.Core import GraphNet, torch_posterior, check_gpu
+    from GraphClustering.Core.Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu
 from copy import deepcopy
 import networkx as nx
 import pandas as pd
@@ -78,25 +78,26 @@ if __name__ == '__main__':
     of the IRM values for the sampled states.
     """
     check_gpu()
-    n_samples = 1000
+    n_samples = 1
     epoch_interval = 20
-    min_epochs = 300
-    max_epochs = 400
+    min_epochs = 0
+    max_epochs = 100
+    node_order = True
 
     Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
-    net = GraphNet(Adj_karate.shape[0])
+    net = GraphNetNodeOrder(Adj_karate.shape[0]) if node_order else GraphNet(Adj_karate.shape[0])
     X1 = net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
 
     header = np.array([epochs for epochs in range(min_epochs, max_epochs + 1, epoch_interval)])
-    filename1 = f'Data/KarateResults_{min_epochs}_{max_epochs}_{n_samples}.csv'
-    filename2 = f'Data/KarateResultsIRM_{min_epochs}_{max_epochs}_{n_samples}.csv'
+    filename1 = f'Data/KarateResults_{min_epochs}_{max_epochs}_{n_samples}_o.csv' if node_order else f'Data/KarateResults_{min_epochs}_{max_epochs}_{n_samples}.csv'
+    filename2 = f'Data/KarateResultsIRM_{min_epochs}_{max_epochs}_{n_samples}_o.csv' if node_order else f'Data/KarateResultsIRM_{min_epochs}_{max_epochs}_{n_samples}.csv'
 
     array1 = np.zeros(len(header))
     array2 = np.zeros(len(header))
 
     train_and_save(net, X1, Adj_karate, min_epochs, n_samples, array1, array2, filename1, filename2, header, 0)
-    net.save(prefix=f'Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(0))
+    net.save(prefix=f'Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(0))
 
     for i in range(1, ((max_epochs - min_epochs) // epoch_interval) + 1):
         X1 = train_and_save(net, X1, Adj_karate, epoch_interval, n_samples, array1, array2, filename1, filename2, header, i)
-        net.save(prefix=f'Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(epoch_interval * i))
+        net.save(prefix=f'Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(epoch_interval * i))
