@@ -13,7 +13,7 @@ except: # Do not change this if it is unnecessary for you. Directly picking the 
     from GraphClustering import GraphNet
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
-from GraphClustering.IRM_post import Gibbs_likelihood
+from GraphClustering.IRM_post import Gibbs_sample
 
 def gibbsSampler(N, graph, a, b, A_alpha):
     n_nodes = graph.shape[0]
