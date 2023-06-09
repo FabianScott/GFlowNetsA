@@ -1,9 +1,28 @@
+import pandas as pd
+
 try:
-    from Core import compare_results_small_graphs
+    from Core import compare_results_small_graphs, print_Latex_table
 except ModuleNotFoundError:
-    from GraphClustering.Core.Core import compare_results_small_graphs
+    from GraphClustering.Core.Core import compare_results_small_graphs, print_Latex_table
 
 if __name__ == '__main__':
-    N = 6
-    max_epochs = 300
-    compare_results_small_graphs(filename=f'Comparison_test_{max_epochs}_{N}.txt', min_N=N, max_N=N, max_epochs=max_epochs, use_new_graph_for_test=True)
+    min_N = 2
+    max_N = 5
+    max_epochs = 100
+    epoch_interval = 2
+    n_samples = 100
+    use_node_order = True
+
+    node_order_string = 'o_' if use_node_order else ''
+    fname = f'Comparison_test_{node_order_string}{max_epochs}_{epoch_interval}_{min_N}_{max_N}.txt'
+    net = compare_results_small_graphs(filename=fname,
+                                       min_N=min_N,
+                                       max_N=max_N,
+                                       run_test=True,
+                                       n_samples=n_samples,
+                                       max_epochs=max_epochs,
+                                       epoch_interval=epoch_interval,
+                                       use_fixed_node_order=use_node_order)
+    df26 = pd.read_csv(fname, sep=',', index_col=0)
+    print_Latex_table(df26.values, significantFigures=3, headerRow=range(0, max_epochs, epoch_interval),
+                      indexColumn=[str(el) + ' & ' for el in range(min_N, max_N + 1)])
