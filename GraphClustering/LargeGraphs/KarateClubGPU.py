@@ -78,12 +78,12 @@ if __name__ == '__main__':
     of the IRM values for the sampled states.
     """
     check_gpu()
-    n_samples = 1
+    n_samples = 1000
     epoch_interval = 10
     min_epochs = 0
     max_epochs = 500
     node_order = True
-    folder_and_forward_slash = ''    # 'Data/'
+    folder_and_forward_slash = 'Data/'
 
     Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
     net = GraphNetNodeOrder(Adj_karate.shape[0]) if node_order else GraphNet(Adj_karate.shape[0])
@@ -97,8 +97,8 @@ if __name__ == '__main__':
     array2 = np.zeros(len(header))
 
     train_and_save(net, X1, Adj_karate, min_epochs, n_samples, array1, array2, filename1, filename2, header, 0)
-    net.save(prefix=f'Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(0))
+    net.save(prefix=f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(0))
 
     for i in range(1, ((max_epochs - min_epochs) // epoch_interval) + 1):
         X1 = train_and_save(net, X1, Adj_karate, epoch_interval, n_samples, array1, array2, filename1, filename2, header, i)
-        net.save(prefix=f'Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(epoch_interval * i))
+        net.save(prefix=f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_', postfix=str(epoch_interval * i))

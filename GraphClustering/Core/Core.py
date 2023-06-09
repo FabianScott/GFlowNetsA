@@ -1124,7 +1124,7 @@ def compare_results_small_graphs(filename,
             file.write(f'{N},')
 
             adjacency_matrix, clusters = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
-            while sum(adjacency_matrix.flatten()) == 0: # No unconnected graphs
+            while sum(adjacency_matrix.flatten()) == 0:  # No unconnected graphs
                 adjacency_matrix, clusters = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
 
             cluster_post = allPosteriors(adjacency_matrix, a, b, A_alpha, log=True, joint=False)
@@ -1139,8 +1139,8 @@ def compare_results_small_graphs(filename,
             for epochs in range(0, max_epochs + 1, epoch_interval):
                 losses = net.train(X, epochs=epoch_interval)
                 cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
-                                                                                    log=True,
-                                                                                    fix=True)
+                                                                                log=True,
+                                                                                fix=True)
                 difference = sum(abs(cluster_post - fixed_probs.detach().numpy()))
                 file.write(f'{difference},')
             file.write('\n')
@@ -1148,21 +1148,26 @@ def compare_results_small_graphs(filename,
 
         if run_test:
             test_results = []
-            for N, network in tqdm(zip(range(min_N, max_N + 1, epoch_interval), fully_trained_networks)):
+            for network in tqdm(fully_trained_networks):
+                N = network.n_nodes
                 test_temp = []
                 adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
+
                 cluster_post = allPosteriors(adjacency_matrix_test, a, b, A_alpha, log=True, joint=False)
+                X = network.sample_forward(adjacency_matrix_test, n_samples=n_samples)
 
                 for epochs in range(0, max_epochs + 1, epoch_interval):
-                    losses = net.train(X, epochs=epoch_interval)
-                    cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix_test,
-                                                                                    log=True,
-                                                                                    fix=True)
+                    losses = network.train(X, epochs=epoch_interval)
+                    cluster_prob_dict, fixed_probs = network.full_sample_distribution_G(
+                        adjacency_matrix=adjacency_matrix_test,
+                        log=True,
+                        fix=True)
                     difference = sum(abs(cluster_post - fixed_probs.detach().numpy()))
                     test_temp.append(difference)
                 test_results.append(test_temp)
             pd.DataFrame(test_results).to_csv(filename[:-4] + '_TEST.csv')
     return net
+
 
 # %% MAIN
 if __name__ == '__main__':
