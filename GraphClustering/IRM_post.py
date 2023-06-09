@@ -129,6 +129,7 @@ def Gibbs_sample_np(A, T, burn_in_buffer = None, sample_interval = None, seed = 
     ----------
     Z: (list) list of clusterings z sampled through iterations of Gibbs sweeps. 
     """ 
+    assert isinstance(A, np.ndarray)
     A[np.diag_indices_from(A)] = 0 # Assume nodes aren't connected to themselves. Equivalent to np.einsum("ii->i", A)[...] = 0
 
     N = A.shape[0]
@@ -140,7 +141,9 @@ def Gibbs_sample_np(A, T, burn_in_buffer = None, sample_interval = None, seed = 
     for t in range(T):
         node_order = np.random.permutation(N) # I could also make the full (N,T) permutations matrix to exchange speed for memory
         for i, n in enumerate(node_order):
-            nn = np.delete(node_order, i, axis = 0)
+            # nn = np.delete(node_order, i, axis = 0)
+            nn_ = np.arange(N) # Another option that is a bit simpler and doesn't permute quite as hard.
+            nn = nn_[nn_ != n]
             m = np.sum(z[nn,:], axis = 0) # Could also use my old cluster representation, which is probably faster.
             K_ind = np.nonzero(m)[0]
             K = len(K_ind) # Number of clusters
@@ -157,8 +160,8 @@ def Gibbs_sample_np(A, T, burn_in_buffer = None, sample_interval = None, seed = 
             assert np.all(r_nl == r_nl_matrix[n])
 
             # Calculate the big log posterior for the cluster allocation for node n. (k+1 possible cluster allocations)
-            logP = np.sum(np.vstack((betaln(m_kl + r_nl + a, m_bar_kl + m - r_nl + b) - betaln(m_kl + a, m_bar_kl + b), \
-                                     betaln(r_nl+a, m-r_nl+b)-betaln(a,b))), axis=1) + np.log(np.append(m,A_alpha)) # k are rows and l are columns. Sum = log product over l.
+            logP = (np.sum(np.vstack((betaln(m_kl + r_nl + a, m_bar_kl + m - r_nl + b) - betaln(m_kl + a, m_bar_kl + b), \
+                                     betaln(r_nl+a, m-r_nl+b)-betaln(a,b))), axis=1) + np.log(np.append(m,A_alpha))) # k are rows and l are columns. Sum = log product over l.
             
             P = np.exp(logP-np.max(logP)) # Avoid underflow and turn into probabilities
             cum_post = np.cumsum(P/np.sum(P))
@@ -361,7 +364,7 @@ if __name__ == "__main__":
     A_adj = ClusterGraph(l, k, 0.9, 0.01)
     
     A_adj = np.array([[1,0,1,1],[0,0,1,0],[1,1,1,0],[1,0,0,1]])
-    Gibbs_sample(A_adj, T = 100, burn_in_buffer = None, sample_interval = 10, seed = 42, a = 1, b = 1, A_alpha = 1)
+    Gibbs_sample_np(A_adj, T = 100, burn_in_buffer = None, sample_interval = 10, seed = 42, a = 1, b = 1, A_alpha = 1)
 
     idxs = np.random.permutation(np.arange(l * k))
     A_random = A_adj[idxs][:, idxs]  # It makes sense to permute both axes in the same way.

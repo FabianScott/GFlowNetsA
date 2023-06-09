@@ -25,9 +25,9 @@ def clusters_all_index_np(clusters_all, specific_cluster_list):
 
 if __name__ == '__main__':
     N = 5
-    a, b, A_alpha = 1, 1, 3  # 10000
+    a, b, A_alpha = 1, 1, 5  # 10000
     log = True
-    seed = 51
+    seed = 54
     plot = True
     adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, A_alpha, log, seed)
 
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     sort_idx = np.argsort(cluster_post)
 
     # Sample Gibbs
-    N_samples = 20000
+    N_samples = 2000
     A_random_numpy = A_random.numpy()
     clusters_sampled = Gibbs_sample_torch(A_random, T = N_samples, burn_in_buffer = None, sample_interval = None, seed = seed, a = a, b = b, A_alpha = A_alpha, return_clustering_matrix = True)
     clusters_unscrambled_lists = [get_clustering_list(clustering)[0] for clustering in clusters_sampled]

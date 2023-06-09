@@ -13,7 +13,7 @@ except: # Do not change this if it is unnecessary for you. Directly picking the 
     from GraphClustering import GraphNet
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
-from GraphClustering.IRM_post import Gibbs_sample
+from GraphClustering.IRM_post import Gibbs_sample_np
 
 def gibbsSampler(N, graph, a, b, A_alpha):
     n_nodes = graph.shape[0]
@@ -55,6 +55,7 @@ if __name__ == '__main__':
     G = nx.karate_club_graph()
     Adj_karate = nx.adjacency_matrix(G).todense()
     Adj_karate = Adj_karate > 0
-    graph = Adj_karate
-    clusters_sampled = gibbsSampler(100, graph, 0.5, 0.5, 5)
-    print(clusters_sampled[:4])
+    graph = np.array(Adj_karate)
+    T = 2000
+    clusters_sampled = Gibbs_sample_np(graph, T, burn_in_buffer = None, sample_interval = None, seed = 42, a = 1, b = 1, A_alpha = 1, return_clustering_matrix = True)
+    print(clusters_sampled)

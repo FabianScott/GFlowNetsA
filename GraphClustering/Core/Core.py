@@ -878,8 +878,8 @@ def torch_posterior(A_in, C_in, a=None, b=None, A_alpha=None, log=True, verbose=
 
     # Prior part. P(z|K), så given K possible labellings.
     N = len(A)
-    values, nk = torch.unique(C, return_counts=True)
-    K_bar = len(values)  # number of empty clusters.
+    # values, nk = torch.unique(C, return_counts=True)
+    K_bar = len(values)  # number of non empty clusters.
 
     log_p_z = (torch_gammaln(A_alpha) + K_bar * (torch.log(A_alpha)) - torch_gammaln(A_alpha + N)) + torch.sum(
         torch_gammaln(nk))
