@@ -1,3 +1,4 @@
+import pandas as pd
 import torch
 import itertools
 import numpy as np
@@ -305,6 +306,7 @@ class GraphNet:
             final_states[epoch] = current_state
 
         if saveFilename is not None:
+            print('SAVING STATES!')
             torch.save(final_states, saveFilename + '.pt')
         return final_states
 
@@ -421,7 +423,7 @@ class GraphNet:
 
         for i, cluster in enumerate(clusters_all):
             posterior = (torch_posterior(adjacency_matrix, cluster, a=torch.tensor(self.a), b=torch.tensor(self.b),
-                                        A_alpha=torch.tensor(self.A_alpha), log=True))
+                                         A_alpha=torch.tensor(self.A_alpha), log=True))
             clusters_all_post[i] = posterior
 
         cluster_post = clusters_all_post - logsumexp(clusters_all_post)
@@ -810,10 +812,10 @@ def p_z(A, C, A_alpha=1, log=True):
     N = len(A)
     values, nk = np.unique(C,
                            return_counts=True)  # nk is an array of counts, so the number of elements in each cluster.
-    K_bar = len(values) # number of non empty clusters.
+    K_bar = len(values)  # number of non empty clusters.
 
     # nk (array of number of nodes in each cluster)
-    log_p_z = (gammaln(A_alpha) + K_bar*(np.log(A_alpha)) - gammaln(A_alpha + N)) + np.sum(gammaln(nk))
+    log_p_z = (gammaln(A_alpha) + K_bar * (np.log(A_alpha)) - gammaln(A_alpha + N)) + np.sum(gammaln(nk))
 
     return log_p_z if log else np.exp(log_p_z)
 
@@ -877,9 +879,10 @@ def torch_posterior(A_in, C_in, a=None, b=None, A_alpha=None, log=True, verbose=
     # Prior part. P(z|K), så given K possible labellings.
     N = len(A)
     values, nk = torch.unique(C, return_counts=True)
-    K_bar = len(values) # number of empty clusters.
-    
-    log_p_z = (torch_gammaln(A_alpha) + K_bar*(torch.log(A_alpha)) - torch_gammaln(A_alpha + N)) + torch.sum(torch_gammaln(nk))
+    K_bar = len(values)  # number of empty clusters.
+
+    log_p_z = (torch_gammaln(A_alpha) + K_bar * (torch.log(A_alpha)) - torch_gammaln(A_alpha + N)) + torch.sum(
+        torch_gammaln(nk))
     # Return joint probability, which is proportional to the posterior
     return logP_x_giv_z + log_p_z if log else torch.exp(logP_x_giv_z + log_p_z)
 
@@ -1022,7 +1025,8 @@ def allPosteriors(A_random, a, b, A_alpha, log, joint=False):
     Bell = len(clusters_all)
     clusters_all_post = np.zeros(Bell)
     for i, cluster in enumerate(clusters_all):
-        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b), A_alpha=torch.tensor(A_alpha),
+        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b),
+                                    A_alpha=torch.tensor(A_alpha),
                                     log=True)
         clusters_all_post[i] = posterior
     if joint: return clusters_all_post  # Return the joint probability instead of normalizing.
@@ -1088,8 +1092,11 @@ def compare_results_small_graphs(filename,
                                  max_N=4,
                                  max_epochs=100,
                                  epoch_interval=10,
+                                 n_samples=100,
+                                 run_test=False,
                                  using_backward_model=False,
                                  use_new_graph_for_test=False,
+                                 use_fixed_node_order=False,
                                  a=0.5,
                                  b=0.5,
                                  A_alpha=3):
@@ -1112,34 +1119,50 @@ def compare_results_small_graphs(filename,
         for epochs in range(0, max_epochs + 1, epoch_interval):
             file.write(f'{epochs},')
         file.write('\n')
-
+        fully_trained_networks = []
         for N in tqdm(range(min_N, max_N + 1), desc='Iterating over N'):
             file.write(f'{N},')
 
             adjacency_matrix, clusters = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
+            while sum(adjacency_matrix.flatten()) == 0: # No unconnected graphs
+                adjacency_matrix, clusters = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
+
             cluster_post = allPosteriors(adjacency_matrix, a, b, A_alpha, log=True, joint=False)
             # Use the same net object, just tested every epoch_interval
             net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, A_alpha=A_alpha,
-                           using_backward_model=using_backward_model)
+                           using_backward_model=using_backward_model) if not use_fixed_node_order else GraphNetNodeOrder(
+                n_nodes=adjacency_matrix.size()[0], a=a, b=b, A_alpha=A_alpha,
+                using_backward_model=using_backward_model)
             # Train using the sampled values before any training
-            X = net.sample_forward(adjacency_matrix)
-
-            adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
+            X = net.sample_forward(adjacency_matrix, n_samples=n_samples)
 
             for epochs in range(0, max_epochs + 1, epoch_interval):
-                net.train(X, epochs=epoch_interval)
-                if use_new_graph_for_test:
-                    cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix_test,
+                losses = net.train(X, epochs=epoch_interval)
+                cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
                                                                                     log=True,
                                                                                     fix=True)
-                else:
-                    cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
-                                                                                log=True,
-                                                                                fix=True)
                 difference = sum(abs(cluster_post - fixed_probs.detach().numpy()))
                 file.write(f'{difference},')
             file.write('\n')
+            fully_trained_networks.append(net)
 
+        if run_test:
+            test_results = []
+            for N, network in tqdm(zip(range(min_N, max_N + 1, epoch_interval), fully_trained_networks)):
+                test_temp = []
+                adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
+                cluster_post = allPosteriors(adjacency_matrix_test, a, b, A_alpha, log=True, joint=False)
+
+                for epochs in range(0, max_epochs + 1, epoch_interval):
+                    losses = net.train(X, epochs=epoch_interval)
+                    cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix_test,
+                                                                                    log=True,
+                                                                                    fix=True)
+                    difference = sum(abs(cluster_post - fixed_probs.detach().numpy()))
+                    test_temp.append(difference)
+                test_results.append(test_temp)
+            pd.DataFrame(test_results).to_csv(filename[:-4] + '_TEST.csv')
+    return net
 
 # %% MAIN
 if __name__ == '__main__':

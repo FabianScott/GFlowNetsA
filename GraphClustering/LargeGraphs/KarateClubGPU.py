@@ -34,8 +34,8 @@ def train_and_save(net, X1, adjacency_matrix, epochs, n_samples, array1, array2,
     :return:
     """
     net.train(X1, epochs=epochs)  # Train an extra epoch interval
-    X2 = net.sample_forward(adjacency_matrix, n_samples=n_samples, timer=True, saveFilename=filename1[:-4] + '_Samples')
-
+    X2 = net.sample_forward(adjacency_matrix, n_samples=n_samples, timer=True, saveFilename=filename1[:-4] + f'_Samples_{i*epoch_interval}')
+    print(filename1, filename1[:-4] + '_Samples')
     net_values1, IRM_values1 = [], []
 
     for state in X1:
@@ -79,18 +79,19 @@ if __name__ == '__main__':
     """
     check_gpu()
     n_samples = 1
-    epoch_interval = 20
+    epoch_interval = 10
     min_epochs = 0
-    max_epochs = 100
+    max_epochs = 500
     node_order = True
+    folder_and_forward_slash = ''    # 'Data/'
 
     Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
     net = GraphNetNodeOrder(Adj_karate.shape[0]) if node_order else GraphNet(Adj_karate.shape[0])
     X1 = net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
 
     header = np.array([epochs for epochs in range(min_epochs, max_epochs + 1, epoch_interval)])
-    filename1 = f'Data/KarateResults_{min_epochs}_{max_epochs}_{n_samples}_o.csv' if node_order else f'Data/KarateResults_{min_epochs}_{max_epochs}_{n_samples}.csv'
-    filename2 = f'Data/KarateResultsIRM_{min_epochs}_{max_epochs}_{n_samples}_o.csv' if node_order else f'Data/KarateResultsIRM_{min_epochs}_{max_epochs}_{n_samples}.csv'
+    filename1 = f'{folder_and_forward_slash}KarateResults_{min_epochs}_{max_epochs}_{n_samples}_o.csv' if node_order else f'{folder_and_forward_slash}KarateResults_{min_epochs}_{max_epochs}_{n_samples}.csv'
+    filename2 = f'{folder_and_forward_slash}KarateResultsIRM_{min_epochs}_{max_epochs}_{n_samples}_o.csv' if node_order else f'{folder_and_forward_slash}KarateResultsIRM_{min_epochs}_{max_epochs}_{n_samples}.csv'
 
     array1 = np.zeros(len(header))
     array2 = np.zeros(len(header))
