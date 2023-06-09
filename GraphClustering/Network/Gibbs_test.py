@@ -25,7 +25,7 @@ def clusters_all_index_np(clusters_all, specific_cluster_list):
 
 if __name__ == '__main__':
     N = 5
-    a, b, A_alpha = 1, 1, 5  # 10000
+    a, b, A_alpha = 1, 1, 10  # 10000
     log = True
     seed = 54
     plot = True
