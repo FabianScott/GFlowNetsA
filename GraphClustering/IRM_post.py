@@ -66,49 +66,6 @@ def r_nl(A, C, n, l):
 
     return r_nl
 
-def Gibbs_likelihood(A, C, a = 0.5, b = 0.5, log = True):
-    # WRONG!!!
-    """Calculate Gibbs_likelyhood as presented in Mikkel's paper.
-
-    Parameters
-    ----------
-    A : Adjacency matrix (2D ndarray)
-    C : clustering index array (1D ndarray) (number clustered nodes long with the cluster c of each node ordered by the Adjacency matrix at each index)
-            (0 Indexed. 1 Indexed should work as well, since it adds an empty initial cluster which doesn't change the likelyhood, but I am not sure.)  
-    a and b: float
-        Parameters for the beta distribution prior for the cluster connectivities. 
-        a = b = 1 yields a uniform distribution.
-    log : Bool
-        Whether or not to return log of the probability
-
-    Return
-    ----------
-    Array of Gibbs_likelyhoods for each cluster k and +1 for a new cluster: float
-    """ 
-
-    # Here lies the old incorrect version as a note.
-    if C.size == 0: return (np.zeros(1) if log else np.ones(1))
-    
-    C = C.astype(int)
-    values, nk = np.unique(C, return_counts=True)
-    A = A[:(len(C)+1),:(len(C)+1)]
-    np.einsum("ii->i", A)[...] = 0 # Beware. This is wrong. 
-    
-    n_C = np.identity(C.max() + 1, int)[C] # create node-cluster adjacency matrix
-    n_C = np.vstack((n_C, np.zeros(C.max()+1, int))) # add an empty last row as a place holder for the last node. 
-    n_C = np.hstack((n_C, np.zeros((len(C)+1,1), int))) # add an empty last partition with no nodes in it for the new cluster option.
-    nk = np.append(nk, 0) # The last extra cluster has no nodes.
-    r_nl_matrix = (A @ n_C) # node i connections to each cluster. 
-    r_nl = r_nl_matrix [len(C)] # just node n. (Array)
-
-    m_kl = n_C.T @ A @ n_C
-    np.einsum("ii->i", m_kl)[...] //= 2
-    m_bar_kl = np.outer(nk, nk) - np.diag(nk * (nk + 1) / 2) - m_kl
-
-    Gibbs_log_likelyhood = np.sum(betaln(m_kl + r_nl + a, m_bar_kl + nk - r_nl + b) - betaln(m_kl + a, m_bar_kl + b), axis=1).reshape((-1))
-
-    return Gibbs_log_likelyhood if log else np.exp(Gibbs_log_likelyhood)
-
 def Gibbs_sample_np(A, T, burn_in_buffer = None, sample_interval = None, seed = 42, a = 1, b = 1, A_alpha = 1, return_clustering_matrix = False):
     """Perform one Gibbs sweep with a specified node order to yield one sampled clustering.
 
@@ -211,7 +168,8 @@ def Gibbs_sample_torch(A, T, burn_in_buffer = None, sample_interval = None, seed
     torch.cuda.manual_seed(seed)
     Z = []
     for t in range(T):
-        node_order = torch.randperm(N) # I could also make the full (N,T) permutations matrix to exchange speed for memory
+        # node_order = torch.randperm(N) # I could also make the full (N,T) permutations matrix to exchange speed for memory
+        node_order = torch.arange(N)
         for i, n in enumerate(node_order):
             # nn = node_order[node_order != n] # Permute hard in here as well because we can.
             nn_ = torch.arange(N) # Another option that is a bit simpler and doesn't permute quite as hard.
