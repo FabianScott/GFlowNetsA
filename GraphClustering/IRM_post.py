@@ -131,6 +131,7 @@ def Gibbs_sample_np(A, T, burn_in_buffer = None, sample_interval = None, seed = 
 
             # z = z[np.nonzero(np.sum(z, axis = 0))] # But this new clustering can't have fewer clusters, since we compensated at the beginning.
             assert np.all(np.sum(z, axis = 0) > 0)
+        print(K)
         Z.append(z if not return_clustering_matrix else z @ z.T) # for each z, the full clustering adjacency matrix is now just z @ z.T
 
     assert len(Z) == T
