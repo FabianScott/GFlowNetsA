@@ -80,7 +80,7 @@ def getTopClusterings(states, n=10, csvFilename=''):  # , plot=False, saveFilena
 
 if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
-    epochs = 100
+    epochs = 0
 
     net = GraphNet(n_nodes=34)
     fname = f'Data/KarateResults_100_500_10000_o_Samples_{epochs}.pt'
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     torch.save(gibbsSamplesPlotable, 'GibbsSamples_10000.pt')
     I = compareIRMSamples([netSamples, gibbsSamplesPlotable],
                           names=['GFlowNet', 'Gibbs Sampler'],
-                          title='Histogram of log IRM values for GFlowNet vs GibbsSampler\non Zachary Karate Club graph',
+                          title=f'Histogram of log IRM values for GFlowNet vs GibbsSampler\non Zachary Karate Club graph after {epochs} epochs',
                           filenameSave=f'comparisonGraph10000Samples_{epochs}.png')
 
     topClustersNet = getTopClusterings(netSamples, n=5, csvFilename='TopClusteringsGFlowNet.csv')
