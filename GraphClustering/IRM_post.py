@@ -96,7 +96,8 @@ def Gibbs_sample_np(A, T, burn_in_buffer = None, sample_interval = None, seed = 
     np.random.seed(seed=seed) # torch.manual_seed(seed) torch.cuda.manual_seed(seed)
     Z = []
     for t in range(T):
-        node_order = np.random.permutation(N) # I could also make the full (N,T) permutations matrix to exchange speed for memory
+        # node_order = np.random.permutation(N) # I could also make the full (N,T) permutations matrix to exchange speed for memory
+        node_order = np.arange(N)
         for i, n in enumerate(node_order):
             # nn = np.delete(node_order, i, axis = 0)
             nn_ = np.arange(N) # Another option that is a bit simpler and doesn't permute quite as hard.
@@ -168,8 +169,9 @@ def Gibbs_sample_torch(A, T, burn_in_buffer = None, sample_interval = None, seed
     torch.cuda.manual_seed(seed)
     Z = []
     for t in range(T):
-        # node_order = torch.randperm(N) # I could also make the full (N,T) permutations matrix to exchange speed for memory
-        node_order = torch.arange(N)
+        # node_order = torch.randperm(N) # Vary the node order to avoid committing to one specific arbitrary node order. 
+            # I could also make the full (N,T) permutations matrix to exchange speed for memory
+        node_order = torch.arange(N) # Mikkel's version. Just same the same initial arbitrary node order every time
         for i, n in enumerate(node_order):
             # nn = node_order[node_order != n] # Permute hard in here as well because we can.
             nn_ = torch.arange(N) # Another option that is a bit simpler and doesn't permute quite as hard.
