@@ -78,15 +78,16 @@ if __name__ == '__main__':
     of the IRM values for the sampled states.
     """
     check_gpu()
-    n_samples = 1000
-    epoch_interval = 10
+    # 9000 for the n_layers=5, n_hidden=64
+    n_samples = 9_000
+    epoch_interval = 100
     min_epochs = 0
     max_epochs = 500
     node_order = True
     folder_and_forward_slash = 'Data/'
 
     Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
-    net = GraphNetNodeOrder(Adj_karate.shape[0]) if node_order else GraphNet(Adj_karate.shape[0])
+    net = GraphNetNodeOrder(Adj_karate.shape[0], n_layers=5, n_hidden=64) if node_order else GraphNet(Adj_karate.shape[0])
     X1 = net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
 
     header = np.array([epochs for epochs in range(min_epochs, max_epochs + 1, epoch_interval)])

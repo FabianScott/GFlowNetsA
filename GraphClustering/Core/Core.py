@@ -4,6 +4,7 @@ import itertools
 import numpy as np
 from tqdm import tqdm
 import torch.nn as nn
+from scipy import stats
 from scipy.special import betaln, gammaln, logsumexp
 from torch.special import gammaln as torch_gammaln
 from torch.distributions import Beta
