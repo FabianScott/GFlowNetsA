@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    n_samples = 500
+    n_samples = 1000
     epoch_interval = 100
     min_epochs = 0
     max_epochs = 100
@@ -12,7 +12,7 @@ if __name__ == '__main__':
     df_list = []
 
     for i in range(4):
-        filename = f'Data/KarateResults_{min_epochs + i * epoch_interval}_{max_epochs + i * epoch_interval}_{n_samples}.csv'
+        filename = f'Data/KarateResults_{min_epochs + i * epoch_interval}_{max_epochs + i * epoch_interval}_{n_samples}_o.csv'
         df = pd.read_csv(filename, header=None)
         df_list.append(df[:10])
 
