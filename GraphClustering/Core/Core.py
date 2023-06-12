@@ -786,7 +786,7 @@ def p_x_giv_z(A, C, a=1, b=1, log=True):
     # boundaries = np.diff(C, prepend=-1).nonzero()[0] # tells me at what index each cluster begins.
     # out =  np.add.reduceat(np.add.reduceat(A,boundaries,1),boundaries,0) # Basically just the matrix-algebra above.
 
-    logP_x_giv_z = np.sum(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b))
+    logP_x_giv_z = np.sum(np.triu(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b)))
 
     return logP_x_giv_z if log else np.exp(logP_x_giv_z)
 
@@ -873,9 +873,9 @@ def torch_posterior(A_in, C_in, a=None, b=None, A_alpha=None, log=True, verbose=
         b_ = b.detach().cpu().numpy()
         m_kl_ = m_kl.detach().cpu().numpy()
         m_bar_kl_ = m_bar_kl.detach().cpu().numpy()
-        logP_x_giv_z = torch.tensor(np.sum(betaln(m_kl_ + a_, m_bar_kl_ + b_) - betaln(a_, b_)))
+        logP_x_giv_z = torch.tensor(np.sum(torch.triu(betaln(m_kl_ + a_, m_bar_kl_ + b_) - betaln(a_, b_))))
     else:
-        logP_x_giv_z = torch.sum(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b))
+        logP_x_giv_z = torch.sum(torch.triu(betaln(m_kl + a, m_bar_kl + b) - betaln(a, b)))
 
     # Prior part. P(z|K), så given K possible labellings.
     N = len(A)

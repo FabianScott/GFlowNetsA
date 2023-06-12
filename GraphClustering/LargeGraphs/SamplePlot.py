@@ -6,6 +6,10 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from scipy import stats
+import sys
+import os
+sys.path.append(os.getcwd())
+sys.path.append(os.path.join(os.getcwd(), "..", "Data"))
 
 
 def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', title=''):
