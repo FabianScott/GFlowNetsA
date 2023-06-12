@@ -1,45 +1,37 @@
 ToDo:
-    - ( ) Implement Gibbs sampler (Nikolaj)
     - (G:X) Read Amortized clustering (Everyone)
-        - ( ) Think about node-order invariant inputs
-        - ( ) New symmetric data inputs. Simple variant: count number of edges.
-    - ( ) Update to equation 25 (Gabriel). Test Z0 (Total flow).
-    - ( ) Look at changes in the loss function.
+        - (X) Has been implemented.
 
-    - ( ) Implement simple flow difference train function (Take a step back)
-        - ( ) Then, when that works, try trajectory balance loss
-    
-    - ( ) Fix import sys path (Gabriel)
     - ( ) Solve problem in Karate Calculations where new network is trained on samples starting from scratch (Fabian)
 
 General ToDo:
     - Work on report
+        - Consistent framing metaphors
     - Work on diagrams for report
-        - Basic GFlowNet diagram
-            - GFlowNet Lego Example Diagram. 
-        - Show the IRM generative process
-        - Exemplary clustering matrix
-        - Flow diagram of how the clustering is constructed
     - Pitch
+        - ( ) Manuscript (Gabriel)
     - Presentation
 
 Sørgsmål til Mikkel:
-    - GFlowNets
-        - Vertice values are trained and not edges. We then flow according to them.
-            - This is incorrect right? Best way to proceed. 
-        - Network currently choses node in action step. Set node order, like other papers?
-            - Randomly permute node order? Risk of overfitting to node order?
-    - Gibbs sampler
-        - also takes a specific node order. Permute randomly?
-        - Why burn in? How?
-        - Ask about daig part of matrix product. Do you assume 0 diagonal in adjacency matrix?
-        - Make efficient by reusing link counts. I can look at that in the future. 
-    - Hvor lang synes du rapporten skal være?
-    - Video pitch idea (manim animation).
-    - Report structure.
-    - Gibbs sampler. 
-    - 
+    - Result heuristics? What is the best way to compare? Our suggestion: Compare IRM and empirical densities (network and Gibbs). 
+        - Other clever heuristics?  
+        - Risk of very rarely seeing a clustering twice?
+            - Results are in and all sampled clusterings only occur once. 
+    
+    - Result ideas
+        - Compare joint IRM values of sampled clusterings. Order them by magnitude and plot them on top of each other. (Maybe best 1000 clusterings)
+            - We expect them both to peak fairly high, Gibbs a bit higher. Hopefully the GFlowNet maintains high joint IRM values for longer.
+                - Can softmax it to make it nicer (but widens extreemes and doesn't reflect the sampling process)
+        - Some point heuristics, such as average joint IRM value and the like.
+        - Compare subgraphs. How often are these 4 nodes clustered together? How do the top 10 clusterings look?
+            - Hard to compare to ground truth directly, since A_alpha = 1 incentivises more clusters.  
 
-    - Define Matlab like onehot clustering matrix. C matrix is the product of that and itself. 
-    - Generative IRM process, but shown using a graph. 
+    - Nikolaj: certain sections of the report you want Mikkel to look through. (Method or a part of theory)
+    - Show him illustrations
+
+    - Where is the Karate club clustering in your paper from? Just a nice IRM clustering? (We have calculated maximum likelyhood A).
+
+    Mikkel Suggestions:
+        - Define Matlab like onehot clustering matrix. C matrix is the product of that and itself. 
+            - (This representation is used extensively in the IRM and Gibbs code)
 
