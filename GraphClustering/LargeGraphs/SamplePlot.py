@@ -80,9 +80,10 @@ def getTopClusterings(states, n=10, csvFilename=''):  # , plot=False, saveFilena
 
 if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
+    epochs = 100
 
     net = GraphNet(n_nodes=34)
-    fname = 'Data/KarateResults_100_500_10000_o_Samples_400.pt'
+    fname = f'Data/KarateResults_100_500_10000_o_Samples_{epochs}.pt'
     netSamples = net.load_samples(fname)
 
     # Load the adjacency matrix to create the state vector, used by the plotting function
@@ -91,15 +92,15 @@ if __name__ == '__main__':
     if run_Gibbs:
         gibbsSamples = Gibbs_sample_torch(torch.tensor(Adj_karate, dtype=torch.float32), T=len(netSamples) * 2,
                                           return_clustering_matrix=True)
+        gibbsSamplesPlotable = [torch.concat((Adj_karate.flatten(), gibbsSample.flatten())) for gibbsSample in gibbsSamples]
     else:
-        gibbsSamples = net.load_samples('GibbsSamples_10000.pt')
-    gibbsSamplesPlotable = [torch.concat((Adj_karate.flatten(), gibbsSample.flatten())) for gibbsSample in gibbsSamples]
-    torch.save(gibbsSamplesPlotable, 'GibbsSamples_10000.pt')
+        gibbsSamplesPlotable = net.load_samples('GibbsSamples_10000.pt')
 
+    torch.save(gibbsSamplesPlotable, 'GibbsSamples_10000.pt')
     I = compareIRMSamples([netSamples, gibbsSamplesPlotable],
                           names=['GFlowNet', 'Gibbs Sampler'],
                           title='Histogram of log IRM values for GFlowNet vs GibbsSampler\non Zachary Karate Club graph',
-                          filenameSave='comparisonGraph10000Samples.png')
+                          filenameSave=f'comparisonGraph10000Samples_{epochs}.png')
 
     topClustersNet = getTopClusterings(netSamples, n=5, csvFilename='TopClusteringsGFlowNet.csv')
     topClustersGibbs = getTopClusterings(gibbsSamplesPlotable, n=5, csvFilename='TopClusteringsGibbs.csv')
