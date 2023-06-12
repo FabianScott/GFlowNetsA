@@ -11,6 +11,7 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
         names = [str(el) for el in range(1, 1 + len(tensors))]
     # tensorsFlat = torch.concat(tensors, dim=0)
     IRM_lists = []
+    sort_idxs = []
     for name, state_tensor in zip(names, tensors):
         IRM_list = []
         for state in state_tensor:
@@ -18,6 +19,7 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
             cluster_list, _ = net.get_clustering_list(cluster_mat)
             IRM_value = int(torch_posterior(adj_mat, cluster_list - 1))
             IRM_list.append(IRM_value)
+        sort_idxs.append(np.argsort(IRM_list))
         IRM_list = sorted(IRM_list)
         plt.hist(IRM_list, label=name, bins=nbins)
         IRM_lists.append(IRM_list)
@@ -30,7 +32,7 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
         plt.savefig(filenameSave)
     plt.show()
 
-    return IRM_lists
+    return IRM_lists, sort_idxs
 
 
 if __name__ == '__main__':
@@ -49,6 +51,24 @@ if __name__ == '__main__':
         gibbsSamples = net.load_samples('GibbsSamples_10000.pt')
     gibbsSamplesPlotable = [torch.concat((Adj_karate.flatten(), gibbsSample.flatten())) for gibbsSample in gibbsSamples]
     torch.save(gibbsSamplesPlotable, 'GibbsSamples_10000.pt')
+
+    def return_0():
+        return 0
+
+    cluster_lists = defaultdict(return_0)
+    IRM_list = []
+    for state in netSamples:
+        adj_mat, cluster_mat = net.get_matrices_from_state(state)
+        cluster_list, _ = net.get_clustering_list(cluster_mat)
+        IRM_value = int(torch_posterior(adj_mat, cluster_list - 1))
+        IRM_list.append(IRM_value)
+        cluster_lists[tuple(list(cluster_list))] += 1
+
+    plt.plot(IRM_list, label='IRM Values')
+    plt.plot(list(cluster_lists.values()), label='Cluster Count')
+    plt.legend()
+    plt.show()
+
 
     I = compareIRMSamples([netSamples, gibbsSamplesPlotable],
                           names=['GFlowNet', 'Gibbs Sampler'],
