@@ -1169,6 +1169,207 @@ def compare_results_small_graphs(filename,
     return net
 
 
+# %% Gibbs Sampler
+def Gibbs_likelihood(A, C, a=0.5, b=0.5, log=True):
+    # WRONG!!!
+    """Calculate Gibbs_likelyhood as presented in Mikkel's paper.
+
+    Parameters
+    ----------
+    A : Adjacency matrix (2D ndarray)
+    C : clustering index array (1D ndarray) (number clustered nodes long with the cluster c of each node ordered by the Adjacency matrix at each index)
+            (0 Indexed. 1 Indexed should work as well, since it adds an empty initial cluster which doesn't change the likelyhood, but I am not sure.)
+    a and b: float
+        Parameters for the beta distribution prior for the cluster connectivities.
+        a = b = 1 yields a uniform distribution.
+    log : Bool
+        Whether or not to return log of the probability
+
+    Return
+    ----------
+    Array of Gibbs_likelyhoods for each cluster k and +1 for a new cluster: float
+    """
+
+    # Here lies the old incorrect version as a note.
+    if C.size == 0: return (np.zeros(1) if log else np.ones(1))
+
+    C = C.astype(int)
+    values, nk = np.unique(C, return_counts=True)
+    A = A[:(len(C) + 1), :(len(C) + 1)]
+    np.einsum("ii->i", A)[...] = 0  # Beware. This is wrong.
+
+    n_C = np.identity(C.max() + 1, int)[C]  # create node-cluster adjacency matrix
+    n_C = np.vstack((n_C, np.zeros(C.max() + 1, int)))  # add an empty last row as a place holder for the last node.
+    n_C = np.hstack((n_C, np.zeros((len(C) + 1, 1),
+                                   int)))  # add an empty last partition with no nodes in it for the new cluster option.
+    nk = np.append(nk, 0)  # The last extra cluster has no nodes.
+    r_nl_matrix = (A @ n_C)  # node i connections to each cluster.
+    r_nl = r_nl_matrix[len(C)]  # just node n. (Array)
+
+    m_kl = n_C.T @ A @ n_C
+    np.einsum("ii->i", m_kl)[...] //= 2
+    m_bar_kl = np.outer(nk, nk) - np.diag(nk * (nk + 1) / 2) - m_kl
+
+    Gibbs_log_likelyhood = np.sum(betaln(m_kl + r_nl + a, m_bar_kl + nk - r_nl + b) - betaln(m_kl + a, m_bar_kl + b),
+                                  axis=1).reshape((-1))
+
+    return Gibbs_log_likelyhood if log else np.exp(Gibbs_log_likelyhood)
+
+
+def Gibbs_sample_np(A, T, burn_in_buffer=None, sample_interval=None, seed=42, a=1, b=1, A_alpha=1,
+                    return_clustering_matrix=False):
+    """Perform one Gibbs sweep with a specified node order to yield one sampled clustering.
+
+    Parameters
+    ----------
+    A : (2D ndarray) Adjacency matrix.
+    T : (int) Number of Gibbs Sweeps.
+    burn_in_buffer : (int) Number of initial samples to discard. Default is T//2.
+    sample_interval : (int) The sweep interval with which to save clusterings.
+    seed : (int) Seed used for random node permutations.
+    a, b and A_alpha: float
+        Parameters for the beta distribution prior for the cluster connectivities and concentration.
+        a = b = 1 yields a uniform distribution.
+        A_alpha is the total cluster concentration parameter.
+    return_clustering_matrix: (bool) a list of full clustering adjacency matrices instead of partial one-hot encoded clustering matrices.
+
+    Return
+    ----------
+    Z: (list) list of clusterings z sampled through iterations of Gibbs sweeps.
+    """
+    assert isinstance(A, np.ndarray)
+    A[np.diag_indices_from(
+        A)] = 0  # Assume nodes aren't connected to themselves. Equivalent to np.einsum("ii->i", A)[...] = 0
+
+    N = A.shape[0]
+    # z_f = np.zeros((N,N)) # z_full. Take all the memory I need, which is not that much.
+    # z_f[:, 0] = 1 # Initialize everthing to be in the first cluster.
+    z = np.ones((N, 1))
+    np.random.seed(seed=seed)  # torch.manual_seed(seed) torch.cuda.manual_seed(seed)
+    Z = []
+    for t in range(T):
+        node_order = np.random.permutation(
+            N)  # I could also make the full (N,T) permutations matrix to exchange speed for memory
+        for i, n in enumerate(node_order):
+            # nn = np.delete(node_order, i, axis = 0)
+            nn_ = np.arange(N)  # Another option that is a bit simpler and doesn't permute quite as hard.
+            nn = nn_[nn_ != n]
+            m = np.sum(z[nn, :], axis=0)  # Could also use my old cluster representation, which is probably faster.
+            K_ind = np.nonzero(m)[0]
+            K = len(K_ind)  # Number of clusters
+            z, m = z[:, K_ind], m[K_ind]  # Fix potential empty clusters
+
+            m_kl = z[nn, :].T @ A[nn][:, nn] @ z[nn, :]
+            m_kl[np.diag_indices_from(
+                m_kl)] //= 2  # The edges are undirected and the previous line counts edges within a cluster twice as if directed. Compensate for that here.
+
+            m_bar_kl = np.outer(m, m) - np.diag(m * (m + 1) / 2) - m_kl
+            r_nl = (z[nn, :].T @ A[nn, n])  # node n connections to each cluster (l).
+
+            n_C = z
+            r_nl_matrix = (A @ n_C)
+            assert np.all(r_nl == r_nl_matrix[n])
+
+            # Calculate the big log posterior for the cluster allocation for node n. (k+1 possible cluster allocations)
+            logP = (np.sum(np.vstack((betaln(m_kl + r_nl + a, m_bar_kl + m - r_nl + b) - betaln(m_kl + a, m_bar_kl + b), \
+                                      betaln(r_nl + a, m - r_nl + b) - betaln(a, b))), axis=1) + np.log(
+                np.append(m, A_alpha)))  # k are rows and l are columns. Sum = log product over l.
+
+            P = np.exp(logP - np.max(logP))  # Avoid underflow and turn into probabilities
+            cum_post = np.cumsum(P / np.sum(P))
+            new_assign = int(np.sum(
+                np.random.rand() > cum_post))  # Calculate which cluster by finding where in the probability distribution rand() lands.
+            z[n, :] = 0
+            if new_assign == z.shape[1]:
+                z = np.hstack((z, np.zeros((N, 1))))
+            z[n, new_assign] = 1
+
+            # z = z[np.nonzero(np.sum(z, axis = 0))] # But this new clustering can't have fewer clusters, since we compensated at the beginning.
+            assert np.all(np.sum(z, axis=0) > 0)
+        Z.append(
+            z if not return_clustering_matrix else z @ z.T)  # for each z, the full clustering adjacency matrix is now just z @ z.T
+
+    assert len(Z) == T
+    Z = (Z[burn_in_buffer:] if burn_in_buffer is not None else Z[T // 2:])
+    if sample_interval is not None: Z = Z[::sample_interval]
+    return Z
+
+
+def Gibbs_sample_torch(A, T, burn_in_buffer=None, sample_interval=None, seed=42, a=1, b=1, A_alpha=1,
+                       return_clustering_matrix=False):
+    """Perform one Gibbs sweep with a specified node order to yield one sampled clustering.
+
+    Parameters
+    ----------
+    A : (2D ndarray) Adjacency matrix.
+    T : (int) Number of Gibbs Sweeps.
+    burn_in_buffer : (int) Number of initial samples to discard. Default is T//2.
+    sample_interval : (int) The sweep interval with which to save clusterings.
+    seed : (int) Seed used for random node permutations.
+    a, b and A_alpha: float
+        Parameters for the beta distribution prior for the cluster connectivities and concentration.
+        a = b = 1 yields a uniform distribution.
+        A_alpha is the total cluster concentration parameter.
+    return_clustering_matrix: (bool) a list of full clustering adjacency matrices instead of partial one-hot encoded clustering matrices.
+
+    Return
+    ----------
+    Z: (list) list of clusterings z sampled through iterations of Gibbs sweeps.
+    """
+
+    N = A.shape[0]
+    A[torch.arange(N), torch.arange(N)] //= 2  # Assume nodes aren't connected to themselves.
+    # z_f = np.zeros((N,N)) # z_full. Take all the memory I need, which is not that much.
+    # z_f[:, 0] = 1 # Initialize everthing to be in the first cluster.
+    z = torch.ones((N, 1))
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    Z = []
+    for t in tqdm(range(T), desc='Gibbs Sampling'):
+        node_order = torch.randperm(
+            N)  # I could also make the full (N,T) permutations matrix to exchange speed for memory
+        for i, n in enumerate(node_order):
+            # nn = node_order[node_order != n] # Permute hard in here as well because we can.
+            nn_ = torch.arange(N)  # Another option that is a bit simpler and doesn't permute quite as hard.
+            nn = nn_[nn_ != n]
+            m = torch.sum(z[nn, :], axis=0)  # Could also use my old cluster representation, which is probably faster.
+            K_ind = m.nonzero(as_tuple=True)[0]  # K_ind = m.nonzero(as_tuple=True)[0]
+            K = len(K_ind)  # Number of clusters
+            z, m = z[:, K_ind], m[K_ind]  # Fix potential empty clusters
+
+            m_kl = z[nn, :].T @ A[nn][:, nn] @ z[nn, :]
+            m_kl[torch.arange(K), torch.arange(
+                K)] //= 2  # The edges are undirected and the previous line counts edges within a cluster twice as if directed. Compensate for that here.
+
+            m_bar_kl = torch.outer(m, m) - torch.diag(m * (m + 1) / 2) - m_kl
+            r_nl = (z[nn, :].T @ A[nn, n])  # node n connections to each cluster (l).
+
+            # Calculate the big log posterior for the cluster allocation for node n. (k+1 possible cluster allocations)
+            logP = torch.sum(
+                torch.vstack((betaln(m_kl + r_nl + a, m_bar_kl + m - r_nl + b) - betaln(m_kl + a, m_bar_kl + b), \
+                              betaln(r_nl + a, m - r_nl + b) - betaln(a, b))), axis=1) + torch.log(
+                torch.hstack((m, torch.tensor([A_alpha]))))  # k are rows and l are columns. Sum = log product over l.
+
+            P = torch.exp(logP - torch.max(logP))  # Avoid underflow and turn into probabilities
+            cum_post = torch.cumsum(P / torch.sum(P), dim=0)
+            new_assign = int(torch.sum(torch.rand(
+                1) > cum_post))  # Calculate which cluster by finding where in the probability distribution rand() lands.
+            z[n, :] = 0
+            if new_assign == z.shape[1]:
+                z = torch.hstack((z, torch.zeros((N, 1))))
+            z[n, new_assign] = 1
+
+            # z = z[np.nonzero(np.sum(z, axis = 0))] # But this new clustering can't have fewer clusters, since we compensated at the beginning.
+            assert torch.all(torch.sum(z, axis=0) > 0)
+        Z.append(
+            z if not return_clustering_matrix else z @ z.T)  # for each z, the full clustering adjacency matrix is now just z @ z.T
+
+    assert len(Z) == T
+    Z = (Z[burn_in_buffer:] if burn_in_buffer is not None else Z[T // 2:])
+    if sample_interval is not None: Z = Z[::sample_interval]
+    return Z
+
+
 # %% MAIN
 if __name__ == '__main__':
     # import matplotlib.pyplot as plt
