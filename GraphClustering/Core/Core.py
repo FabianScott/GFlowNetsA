@@ -1019,19 +1019,17 @@ def allPermutations(n):
     return np.array(perm[-1]) - 1
 
 
-def allPosteriors(A_random, a, b, A_alpha, log, joint=False):
+def allPosteriors(A_random, a, b, A_alpha, log, joint = False):
     # Computing posteriors for all clusters.
     N = len(A_random)
     clusters_all = allPermutations(N)
     Bell = len(clusters_all)
     clusters_all_post = np.zeros(Bell)
     for i, cluster in enumerate(clusters_all):
-        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b),
-                                    A_alpha=torch.tensor(A_alpha),
-                                    log=True)
+        posterior = torch_posterior(A_random, cluster, a=torch.tensor(a), b=torch.tensor(b), A_alpha = torch.tensor(A_alpha), log= True)
         clusters_all_post[i] = posterior
-    if joint: return clusters_all_post  # Return the joint probability instead of normalizing.
-    cluster_post = clusters_all_post - logsumexp(clusters_all_post)  # Normalize them into proper log probabilities
+    if joint: return clusters_all_post # Return the joint probability instead of normalizing.
+    cluster_post = clusters_all_post - logsumexp(clusters_all_post) # Normalize them into proper log probabilities
     if not log: cluster_post = np.exp(cluster_post)
     return cluster_post
 
@@ -1098,9 +1096,10 @@ def compare_results_small_graphs(filename,
                                  using_backward_model=False,
                                  train_mixed=False,
                                  use_fixed_node_order=False,
-                                 a=0.5,
-                                 b=0.5,
-                                 A_alpha=3):
+                                 plot_last=False,
+                                 a=1.,
+                                 b=1.,
+                                 A_alpha=1.):
     """
     Given a destination file, calculate and store the difference
     between the GFlowNet's output and the true IRM values,
@@ -1143,15 +1142,24 @@ def compare_results_small_graphs(filename,
             X = net.sample_forward(adjacency_matrix, n_samples=n_samples)
 
             cluster_post = allPosteriors(adjacency_matrix, a, b, A_alpha, log=True, joint=False)
-            for epochs in range(0, max_epochs + 1, epoch_interval):
-                losses = net.train(X, epochs=epoch_interval)
+            cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
+                                                                            log=True,
+                                                                            fix=True)
+            sort_idx = np.argsort(cluster_post)
+            difference = sum(abs(cluster_post[sort_idx] - fixed_probs.detach().numpy()[sort_idx]))
+            file.write(f'{difference},')
+            for epochs in range(0, max_epochs, epoch_interval):
+                losses = net.train(X, epochs=epoch_interval, verbose=True)
                 cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
                                                                                 log=True,
-                                                                                fix=True)
-                difference = sum(abs(cluster_post - fixed_probs.detach().numpy()))
+                                                                       fix=True)
+                sort_idx = np.argsort(cluster_post)
+                difference = sum(abs(cluster_post[sort_idx] - fixed_probs.detach().numpy()[sort_idx]))
                 file.write(f'{difference},')
             file.write('\n')
             fully_trained_networks.append(net)
+            if plot_last:
+                plot_posterior(cluster_post, sort_idx=sort_idx, net_posteriors_numpy=fixed_probs.detach().numpy())
 
         if run_test:
             test_results = []
@@ -1164,7 +1172,7 @@ def compare_results_small_graphs(filename,
                 X = network.sample_forward(adjacency_matrix_test, n_samples=n_samples)
 
                 for epochs in range(0, max_epochs + 1, epoch_interval):
-                    losses = network.train(X, epochs=epoch_interval)
+                    losses = network.train(X, epochs=epoch_interval, verbose=True)
                     cluster_prob_dict, fixed_probs = network.full_sample_distribution_G(
                         adjacency_matrix=adjacency_matrix_test,
                         log=True,
@@ -1173,8 +1181,33 @@ def compare_results_small_graphs(filename,
                     test_temp.append(difference)
                 test_results.append(test_temp)
             pd.DataFrame(test_results).to_csv(filename[:-4] + '_TEST.csv')
-    return net
+    return fully_trained_networks
 
+
+def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, log = True):
+    log_string = " Log " if log else " "
+    order = "index" if (sort_idx is None) else "Magnitude"
+    xlab = "Cluster Index" if (sort_idx is None) else "Sorted Cluster Index"
+    if sort_idx is None: sort_idx = torch.arange(len(cluster_post))
+
+    from_network = '' if ((net_posteriors_numpy is None) or (sample_posteriors_numpy is None)) else ':\nExact and extracted from network'
+    f = plt.figure()
+    plt.title('Cluster Posterior' + log_string + 'Probabilites by ' + order + from_network)
+    if not log: cluster_post = np.exp(cluster_post)
+    plt.plot(cluster_post[sort_idx], "bo")
+    if net_posteriors_numpy is not None:
+        if not log: net_posteriors_numpy = np.exp(net_posteriors_numpy)
+        plt.plot(net_posteriors_numpy[sort_idx], "ro", markersize=4)
+    if sample_posteriors_numpy is not None:
+        if not log: sample_posteriors_numpy = np.exp(sample_posteriors_numpy)
+        plt.plot(sample_posteriors_numpy[sort_idx], "gx")
+    plt.xlabel(xlab)
+    plt.ylabel("Posterior Probability")
+    plt.legend(["Exact values", "From Network", "Sampled Empirically"])
+    # plt.ylim(0, -5)
+    plt.tight_layout()
+    plt.show()
+    return
 
 # %% Gibbs Sampler
 def Gibbs_likelihood(A, C, a=0.5, b=0.5, log=True):

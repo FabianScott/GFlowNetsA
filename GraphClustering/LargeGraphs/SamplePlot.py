@@ -124,7 +124,7 @@ if __name__ == '__main__':
         I = compareIRMSamples([netSamples, gibbsSamplesPlotable],
                               names=['GFlowNet', 'Gibbs Sampler'],
                               title=f'Histogram of log IRM values for GFlowNet vs GibbsSampler\non Zachary Karate Club graph after {epochs} epochs',
-                              filenameSave=f'Plots/comparisonGraph10000Samples_{epochs}.png')
+                              )#filenameSave=f'Plots/comparisonGraph10000Samples_{epochs}.png')
 
         topClustersNet = getTopClusterings(netSamples, n=5, csvFilename=f'Data/TopClusteringsGFlowNet_{epochs}.csv')
         topClustersGibbs = getTopClusterings(gibbsSamplesPlotable, n=5, csvFilename=f'Data/TopClusteringsGibbs_{epochs}.csv')

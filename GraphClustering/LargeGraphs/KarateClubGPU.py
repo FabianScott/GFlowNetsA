@@ -79,7 +79,7 @@ if __name__ == '__main__':
     """
     check_gpu()
     # 9000 for the n_layers=5, n_hidden=64
-    n_samples = 10_000
+    n_samples = 1
     epoch_interval = 100
     min_epochs = 0
     max_epochs = 500

@@ -303,21 +303,21 @@ if __name__ == '__main__':
     :soft return: If plots: returns plots comparing IRM posterior values for the different clusterings.
     """
     t0 = time.process_time()
-    N =  4
+    N = 3
     a, b, A_alpha = 1, 1, 1 # 10000
     log = True
     seed = 65
     plot_adj = True
-    check_adj = True
+    check_adj = False
     plot_results = True
     save_results = False
     _print_clusterings = False
 
     top = 10
-    exact = False
+    exact = True
     train_samples = 100
-    N_samples = None
-    train_epochs = 100
+    N_samples = 1000
+    train_epochs = 7
     adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, A_alpha, log, seed)
 
     if plot_adj:
