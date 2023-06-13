@@ -14,7 +14,7 @@ if __name__ == '__main__':
     use_node_order = True
 
     node_order_string = 'o_' if use_node_order else ''
-    fname = f'Data/Comparison_test_{node_order_string}{max_epochs}_{epoch_interval}_{min_N}_{max_N}.txt'
+    fname = f'Data/New_Final_Comparison_test_{node_order_string}{max_epochs}_{epoch_interval}_{min_N}_{max_N}.txt'
     networks = compare_results_small_graphs(filename=fname,
                                             min_N=min_N,
                                             max_N=max_N,

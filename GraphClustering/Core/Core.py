@@ -1149,6 +1149,8 @@ def compare_results_small_graphs(filename,
             X1 = net.sample_forward(adjacency_matrix, n_samples=n_samples_distribution)
             sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
             sort_idx = np.argsort(cluster_post)
+            inf_mask = sample_posteriors_numpy == -np.inf
+            sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
             difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
             file.write(f'{difference},')
             for epochs in tqdm(range(0, max_epochs + epoch_interval, epoch_interval), desc='Epoch iteration'):
@@ -1160,21 +1162,30 @@ def compare_results_small_graphs(filename,
                 X1 = net.sample_forward(adjacency_matrix, n_samples=n_samples_distribution, timer=True)
                 sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
                 sort_idx = np.argsort(cluster_post)
+                inf_mask = sample_posteriors_numpy == -np.inf
+                sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
                 difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
                 file.write(f'{difference},')
             file.write('\n')
             fully_trained_networks.append(net)
             if plot_last:
+                gibbsSamples = Gibbs_sample_torch(adjacency_matrix, n_samples_distribution*2, return_clustering_matrix=True)
+                tempSamples = torch.zeros((n_samples_distribution, N**2*2))
+                for i, sample in enumerate(gibbsSamples):
+                    tempSamples[i] = torch.tensor(sample)
+                # gibbsSamples = torch.tensor([ for sample in gibbsSamples])
+                gibbsDistribution = empiricalSampleDistribution(tempSamples, N, net, numpy=True, log=True)
                 plot_posterior(cluster_post,
                                sort_idx=sort_idx,
                                net_posteriors_numpy=None,
+                               gibbs_sample_posteriors=gibbsDistribution,
                                sample_posteriors_numpy=sample_posteriors_numpy,
                                saveFilename=f'Plots/PosteriorPlot_{N}_{max_epochs}_{n_samples_distribution}.png')
 
         if run_test:
             test_results = []
-            for network in tqdm(fully_trained_networks):
-                N = network.n_nodes
+            for net in tqdm(fully_trained_networks):
+                N = net.n_nodes
                 test_temp = []
                 adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
 
@@ -1201,7 +1212,7 @@ def compare_results_small_graphs(filename,
     return fully_trained_networks
 
 
-def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, log = True, saveFilename=''):
+def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, gibbs_sample_posteriors=None, log = True, saveFilename=''):
     log_string = " Log " if log else " "
     order = "index" if (sort_idx is None) else "Magnitude"
     xlab = "Cluster Index" if (sort_idx is None) else "Sorted Cluster Index"
@@ -1211,16 +1222,20 @@ def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, s
     f = plt.figure()
     plt.title('Cluster Posterior' + log_string + 'Probabilites by ' + order + from_network)
     if not log: cluster_post = np.exp(cluster_post)
-    plt.plot(cluster_post[sort_idx], "bo")
+    plt.plot(cluster_post[sort_idx], "bo", label="Exact values")
     if net_posteriors_numpy is not None:
         if not log: net_posteriors_numpy = np.exp(net_posteriors_numpy)
-        plt.plot(net_posteriors_numpy[sort_idx], "ro", markersize=4)
+        plt.plot(net_posteriors_numpy[sort_idx], "go", markersize=4, label="From Network")
     if sample_posteriors_numpy is not None:
         if not log: sample_posteriors_numpy = np.exp(sample_posteriors_numpy)
-        plt.plot(sample_posteriors_numpy[sort_idx], "gx")
+        plt.plot(sample_posteriors_numpy[sort_idx], "gx", label="GFlowNet Sampled Empirically")
+    if gibbs_sample_posteriors is not None:
+        if not log: gibbs_sample_posteriors = np.exp(gibbs_sample_posteriors)
+        plt.plot(gibbs_sample_posteriors[sort_idx], "ro", label="Gibbs Sampled Empirically")
+
     plt.xlabel(xlab)
     plt.ylabel("Posterior Probability")
-    plt.legend(["Exact values", "From Network", "Sampled Empirically"])
+    plt.legend()
     # plt.ylim(0, -5)
     plt.tight_layout()
     if saveFilename:
@@ -1355,7 +1370,7 @@ def Gibbs_sample_np(A, T, burn_in_buffer=None, sample_interval=None, seed=42, a=
 
 
 def Gibbs_sample_torch(A, T, burn_in_buffer=None, sample_interval=None, seed=42, a=1, b=1, A_alpha=1,
-                       return_clustering_matrix=False):
+                       return_clustering_matrix=True):
     """Perform one Gibbs sweep with a specified node order to yield one sampled clustering.
 
     Parameters
