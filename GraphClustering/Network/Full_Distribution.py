@@ -7,12 +7,12 @@ from scipy.special import logsumexp
 import matplotlib.pyplot as plt
 import sys
 try:
-    from GraphClustering import GraphNet
+    from GraphClustering import GraphNet, GraphNetNodeOrder
 except:
     print("Appending to sys path")
     sys.path.append(os.getcwd()) # This is now obsolete, since I made the package pip installable. I will leave it in case it becomes necessary again.
     sys.path.append(os.path.join(os.getcwd(), "GraphClustering", "Core"))
-    from GraphClustering import GraphNet
+    from GraphClustering import GraphNet, GraphNetNodeOrder
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
 import time
@@ -150,8 +150,28 @@ def time_func(func, n = 1, *kwargs):
     t_total = t1-t0
     return t_total
 
+def empiricalSampleDistribution(n_nodes, n_samples, numpy=False):
+    clusters_all = allPermutations(n_nodes)
+    clusters_all_tensor = torch.tensor(clusters_all + 1)
+    X1 = net.sample_forward(adjacency_matrix=A_random, n_samples=n_samples)
+
+    sample_posterior_counts = torch.zeros(len(clusters_all))
+
+    for x in X1:
+        x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
+
+        cluster_ind = clusters_all_index(clusters_all_tensor, specific_cluster_list=x_c_list)
+        sample_posterior_counts[cluster_ind] += 1
+
+    sample_posterior_probs = sample_posterior_counts / torch.sum(sample_posterior_counts)
+    if log:
+        sample_posterior_probs = torch.log(sample_posterior_probs)
+        assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
+
+    return sample_posterior_probs.detach().numpy() if numpy else sample_posterior_probs
+
 def full_distribution_test(N, a=1, b=1, A_alpha=1, log = True, seed = 42, plot_adj = False, check_adj = False, plot_results = False, save_results = False,
-                        _print_clusterings = False, top = 10, exact = False, train_samples = 100, N_samples = None, train_epochs = 100):
+                        _print_clusterings = False, top = 10, exact = False, train_samples = 100, N_samples = None, train_epochs = 100, adjacency_matrix=None):
     """
     A combined test script to test the exact IRM posterior values against those learned by the GFlowNet.
         It is flexible and can ignore test methods according to parameter values.
@@ -181,6 +201,7 @@ def full_distribution_test(N, a=1, b=1, A_alpha=1, log = True, seed = 42, plot_a
     t0 = time.process_time()
 
     adjacency_matrix, cluster_idxs, clusters = create_graph(N, a, b, A_alpha, log, seed)
+    A_random, idxs, cluster_random, cluster_num = scramble_graph(adjacency_matrix, clustering_list = cluster_idxs, seed = 42)
 
     if plot_adj:
         print(cluster_idxs)
@@ -189,8 +210,7 @@ def full_distribution_test(N, a=1, b=1, A_alpha=1, log = True, seed = 42, plot_a
         plt.show()
         if check_adj: sys.exit()
     
-    A_random, idxs, cluster_random, cluster_num = scramble_graph(adjacency_matrix, clustering_list = cluster_idxs, seed = 42)
-    
+
     if plot_adj:
         print(cluster_random-1)
         plt.figure()
@@ -223,7 +243,7 @@ def full_distribution_test(N, a=1, b=1, A_alpha=1, log = True, seed = 42, plot_a
         plt.show()
         # sys.exit()
 
-    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, A_alpha = A_alpha)
+    net = GraphNetNodeOrder(n_nodes=adjacency_matrix.size()[0], a = a, b = b, A_alpha = A_alpha)
     X = net.sample_forward(adjacency_matrix=A_random, epochs=100)
 
     # Sample once before and after training
@@ -244,7 +264,7 @@ def full_distribution_test(N, a=1, b=1, A_alpha=1, log = True, seed = 42, plot_a
 
             for x in X1:
                 x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
-            
+
                 cluster_ind = clusters_all_index(clusters_all_tensor, specific_cluster_list = x_c_list)
                 sample_posterior_counts[cluster_ind] += 1
 
@@ -253,7 +273,7 @@ def full_distribution_test(N, a=1, b=1, A_alpha=1, log = True, seed = 42, plot_a
                 sample_posterior_probs = torch.log(sample_posterior_probs)
                 assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
             sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
-        
+
         if plot_results or save_results: # Plot results before and after training.
             plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = True)
             if save_results: save_img(N, log = True, i = i, train_epochs = train_epochs)
@@ -362,7 +382,7 @@ if __name__ == '__main__':
         plt.show()
         # sys.exit()
 
-    net = GraphNet(n_nodes=adjacency_matrix.size()[0], a = a, b = b, A_alpha = A_alpha)
+    net = GraphNetNodeOrder(n_nodes=adjacency_matrix.size()[0], a = a, b = b, A_alpha = A_alpha)
     X = net.sample_forward(adjacency_matrix=A_random, n_samples = train_samples)
 
     # Sample once before and after training
@@ -376,22 +396,23 @@ if __name__ == '__main__':
 
         if N_samples is None: N_samples = 10*np.power(4,N)
         if N_samples:
-            clusters_all_tensor = torch.tensor(clusters_all+1)
-            X1 = net.sample_forward(adjacency_matrix = A_random, n_samples = N_samples)
-
-            sample_posterior_counts = torch.zeros(len(clusters_all))
-
-            for x in X1:
-                x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
-            
-                cluster_ind = clusters_all_index(clusters_all_tensor, specific_cluster_list = x_c_list)
-                sample_posterior_counts[cluster_ind] += 1
-
-            sample_posterior_probs = sample_posterior_counts/torch.sum(sample_posterior_counts)
-            if log:
-                sample_posterior_probs = torch.log(sample_posterior_probs)
-                assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
-            sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
+            # clusters_all_tensor = torch.tensor(clusters_all+1)
+            # X1 = net.sample_forward(adjacency_matrix = A_random, n_samples = N_samples)
+            #
+            # sample_posterior_counts = torch.zeros(len(clusters_all))
+            #
+            # for x in X1:
+            #     x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
+            #
+            #     cluster_ind = clusters_all_index(clusters_all_tensor, specific_cluster_list = x_c_list)
+            #     sample_posterior_counts[cluster_ind] += 1
+            #
+            # sample_posterior_probs = sample_posterior_counts/torch.sum(sample_posterior_counts)
+            # if log:
+            #     sample_posterior_probs = torch.log(sample_posterior_probs)
+            #     assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
+            # sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
+            sample_posteriors_numpy = empiricalSampleDistribution(N, n_samples=N_samples, numpy=True)
         
         if plot_results or save_results: # Plot results before and after training.
             plot_posterior(cluster_post, sort_idx, net_posteriors_numpy, sample_posteriors_numpy, log = True)

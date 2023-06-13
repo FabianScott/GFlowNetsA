@@ -1142,24 +1142,28 @@ def compare_results_small_graphs(filename,
             X = net.sample_forward(adjacency_matrix, n_samples=n_samples)
 
             cluster_post = allPosteriors(adjacency_matrix, a, b, A_alpha, log=True, joint=False)
-            cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
-                                                                            log=True,
-                                                                            fix=True)
+            cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
+                                                               log=True,
+                                                               fix=False)
+            fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
             sort_idx = np.argsort(cluster_post)
             difference = sum(abs(cluster_post[sort_idx] - fixed_probs.detach().numpy()[sort_idx]))
             file.write(f'{difference},')
             for epochs in range(0, max_epochs, epoch_interval):
                 losses = net.train(X, epochs=epoch_interval, verbose=True)
-                cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
+                cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
                                                                                 log=True,
-                                                                       fix=True)
+                                                                                fix=False)
+                # fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
+                X1 = net.sample_forward(adjacency_matrix, n_samples=1000)
+                sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
                 sort_idx = np.argsort(cluster_post)
-                difference = sum(abs(cluster_post[sort_idx] - fixed_probs.detach().numpy()[sort_idx]))
+                difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
                 file.write(f'{difference},')
             file.write('\n')
             fully_trained_networks.append(net)
             if plot_last:
-                plot_posterior(cluster_post, sort_idx=sort_idx, net_posteriors_numpy=fixed_probs.detach().numpy())
+                plot_posterior(cluster_post, sort_idx=sort_idx, net_posteriors_numpy=fixed_probs.detach().numpy(), sample_posteriors_numpy=sample_posteriors_numpy)
 
         if run_test:
             test_results = []
@@ -1408,6 +1412,50 @@ def Gibbs_sample_torch(A, T, burn_in_buffer=None, sample_interval=None, seed=42,
     Z = (Z[burn_in_buffer:] if burn_in_buffer is not None else Z[T // 2:])
     if sample_interval is not None: Z = Z[::sample_interval]
     return Z
+
+
+def get_clustering_list(clustering_matrix):
+    current_clustering_copy = torch.clone(clustering_matrix)
+    clustering_list = torch.zeros(current_clustering_copy.size()[0])
+    number_of_clusters = 1  # starting at the empty cluster
+    node_no = 0
+    while torch.sum(current_clustering_copy):
+        row = current_clustering_copy[node_no]
+        if torch.sum(row):
+            indices = torch.argwhere(row)
+            clustering_list[indices] = number_of_clusters
+            current_clustering_copy[indices] = 0
+            current_clustering_copy[:, indices] = 0
+            number_of_clusters += 1
+        node_no += 1
+
+    return clustering_list, number_of_clusters
+
+
+def clusters_all_index(clusters_all_tensor, specific_cluster_list):
+    cluster_ind = torch.argwhere(torch.all(torch.eq(clusters_all_tensor, specific_cluster_list), dim=1) == 1)[0][0]
+    return cluster_ind
+
+
+def empiricalSampleDistribution(X1, n_nodes, net, numpy=False, log=True):
+    clusters_all = allPermutations(n_nodes)
+    clusters_all_tensor = torch.tensor(clusters_all + 1)
+    # X1 = net.sample_forward(adjacency_matrix=adjacency_matrix, n_samples=n_samples)
+
+    sample_posterior_counts = torch.zeros(len(clusters_all))
+
+    for x in X1:
+        x_c_list = get_clustering_list(net.get_matrices_from_state(x)[1])[0]
+
+        cluster_ind = clusters_all_index(clusters_all_tensor, specific_cluster_list=x_c_list)
+        sample_posterior_counts[cluster_ind] += 1
+
+    sample_posterior_probs = sample_posterior_counts / torch.sum(sample_posterior_counts)
+    if log:
+        sample_posterior_probs = torch.log(sample_posterior_probs)
+        assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
+
+    return sample_posterior_probs.detach().numpy() if numpy else sample_posterior_probs
 
 
 # %% MAIN
