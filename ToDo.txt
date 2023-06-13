@@ -12,6 +12,10 @@ General ToDo:
         - ( ) Manuscript (Gabriel)
     - Presentation
 
+Diagrams/Figures ToDo:
+    - Overall Karate results plot
+    - 6 node exact, network and Gibbs plot (To show it works. Show what we want to generalize)
+
 Sørgsmål til Mikkel:
     - Result heuristics? What is the best way to compare? Our suggestion: Compare IRM and empirical densities (network and Gibbs). 
         - Other clever heuristics?  
