@@ -1096,7 +1096,7 @@ def compare_results_small_graphs(filename,
                                  n_samples=100,
                                  run_test=False,
                                  using_backward_model=False,
-                                 use_new_graph_for_test=False,
+                                 train_mixed=False,
                                  use_fixed_node_order=False,
                                  a=0.5,
                                  b=0.5,
@@ -1128,15 +1128,21 @@ def compare_results_small_graphs(filename,
             while sum(adjacency_matrix.flatten()) == 0:  # No unconnected graphs
                 adjacency_matrix, clusters = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
 
-            cluster_post = allPosteriors(adjacency_matrix, a, b, A_alpha, log=True, joint=False)
             # Use the same net object, just tested every epoch_interval
             net = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, A_alpha=A_alpha,
                            using_backward_model=using_backward_model) if not use_fixed_node_order else GraphNetNodeOrder(
                 n_nodes=adjacency_matrix.size()[0], a=a, b=b, A_alpha=A_alpha,
                 using_backward_model=using_backward_model)
+
             # Train using the sampled values before any training
+            # if train_mixed:
+            #     X = torch.zeros((n_samples, net.n_nodes ** 2 * 2))
+            #     for i in range(n_samples):
+            #         X[i] =
+
             X = net.sample_forward(adjacency_matrix, n_samples=n_samples)
 
+            cluster_post = allPosteriors(adjacency_matrix, a, b, A_alpha, log=True, joint=False)
             for epochs in range(0, max_epochs + 1, epoch_interval):
                 losses = net.train(X, epochs=epoch_interval)
                 cluster_prob_dict, fixed_probs = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
