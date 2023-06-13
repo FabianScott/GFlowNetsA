@@ -30,7 +30,7 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
     sort_idxs = []
     for name, tensors in zip(names, tensors):
         IRM_list = []
-        for state in tqdm(tensors, desc='States'):
+        for state in tqdm(tensors, desc=f'Calculating IRM for {name} States'):
             adj_mat, cluster_mat = net.get_matrices_from_state(state)
             cluster_list, _ = net.get_clustering_list(cluster_mat)
             if not sum(cluster_list == 0):
@@ -70,7 +70,7 @@ def getTopClusterings(states, n=10, csvFilename=''):  # , plot=False, saveFilena
     # Use a defaultdict for ease
     cluster_lists = defaultdict(return_0)
     IRM_list = []
-    for state in tqdm(states, desc='Counting'):
+    for state in tqdm(states, desc='Counting most common states'):
         adj_mat, cluster_mat = net.get_matrices_from_state(state)
         cluster_list, _ = net.get_clustering_list(cluster_mat)
         if not sum(cluster_list == 0):
@@ -105,9 +105,9 @@ if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
     epochs = 0
     topClustersList = []
-    for epochs in range(0, 500, 100):
+    for epochs in range(0, 100, 100):
         net = GraphNet(n_nodes=34)
-        fname = f'Data/KarateResults_100_500_10000_o_Samples_{epochs}.pt'
+        fname = f'Data/NewKarateResults_0_500_10000_o_Samples_{epochs}.pt'
         netSamples = net.load_samples(fname)
 
         # Load the adjacency matrix to create the state vector, used by the plotting function
