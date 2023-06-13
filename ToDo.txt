@@ -31,6 +31,9 @@ Sørgsmål til Mikkel:
 
     - Where is the Karate club clustering in your paper from? Just a nice IRM clustering? (We have calculated maximum likelyhood A).
 
+    - How big/deep should the network be?
+    - New results.
+
     Mikkel Suggestions:
         - Define Matlab like onehot clustering matrix. C matrix is the product of that and itself. 
             - (This representation is used extensively in the IRM and Gibbs code)

@@ -133,7 +133,7 @@ def Gibbs_sample_np(A, T, burn_in_buffer = None, sample_interval = None, seed = 
             assert np.all(np.sum(z, axis = 0) > 0)
         print(K)
         Z.append(z if not return_clustering_matrix else z @ z.T) # for each z, the full clustering adjacency matrix is now just z @ z.T
-
+    
     assert len(Z) == T
     Z = (Z[burn_in_buffer:] if burn_in_buffer is not None else Z[T//2:])
     if sample_interval is not None: Z = Z[::sample_interval]
