@@ -1172,7 +1172,7 @@ def compare_results_small_graphs(filename,
                 gibbsSamples = Gibbs_sample_torch(adjacency_matrix, n_samples_distribution*2, return_clustering_matrix=True)
                 tempSamples = torch.zeros((n_samples_distribution, N**2*2))
                 for i, sample in enumerate(gibbsSamples):
-                    tempSamples[i] = torch.tensor(sample)
+                    tempSamples[i] = torch.concat((adjacency_matrix.flatten(), torch.tensor(sample.flatten())))
                 # gibbsSamples = torch.tensor([ for sample in gibbsSamples])
                 gibbsDistribution = empiricalSampleDistribution(tempSamples, N, net, numpy=True, log=True)
                 plot_posterior(cluster_post,

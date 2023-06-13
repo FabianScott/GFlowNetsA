@@ -8,7 +8,7 @@ except ModuleNotFoundError:
 if __name__ == '__main__':
     min_N = 6
     max_N = 6
-    max_epochs = 100
+    max_epochs = 50
     epoch_interval = 1
     n_samples = 100
     use_node_order = True
@@ -21,7 +21,7 @@ if __name__ == '__main__':
                                             run_test=True,
                                             plot_last=True,
                                             n_samples=n_samples,
-                                            n_samples_distribution=1000,
+                                            n_samples_distribution=100,
                                             max_epochs=max_epochs,
                                             epoch_interval=epoch_interval,
                                             use_fixed_node_order=use_node_order)
