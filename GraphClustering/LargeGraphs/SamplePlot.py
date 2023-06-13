@@ -105,7 +105,7 @@ if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
     epochs = 0
     topClustersList = []
-    for epochs in range(0, 100, 100):
+    for epochs in range(100, 200, 100):
         net = GraphNet(n_nodes=34)
         fname = f'Data/NewKarateResults_0_500_10000_o_Samples_{epochs}.pt'
         netSamples = net.load_samples(fname)
@@ -124,8 +124,8 @@ if __name__ == '__main__':
         I = compareIRMSamples([netSamples, gibbsSamplesPlotable],
                               names=['GFlowNet', 'Gibbs Sampler'],
                               title=f'Histogram of log IRM values for GFlowNet vs GibbsSampler\non Zachary Karate Club graph after {epochs} epochs',
-                              )#filenameSave=f'Plots/comparisonGraph10000Samples_{epochs}.png')
+                              filenameSave=f'Plots/NewComparisonGraph10000Samples_{epochs}.png')
 
-        topClustersNet = getTopClusterings(netSamples, n=5, csvFilename=f'Data/TopClusteringsGFlowNet_{epochs}.csv')
-        topClustersGibbs = getTopClusterings(gibbsSamplesPlotable, n=5, csvFilename=f'Data/TopClusteringsGibbs_{epochs}.csv')
+        topClustersNet = getTopClusterings(netSamples, n=5, csvFilename=f'Data/NewTopClusteringsGFlowNet_{epochs}.csv')
+        topClustersGibbs = getTopClusterings(gibbsSamplesPlotable, n=5, csvFilename=f'Data/NewTopClusteringsGibbs_{epochs}.csv')
         topClustersList.append([topClustersNet, topClustersGibbs])
