@@ -6,11 +6,11 @@ except ModuleNotFoundError:
     from GraphClustering.Core.Core import compare_results_small_graphs, print_Latex_table
 
 if __name__ == '__main__':
-    min_N = 2
-    max_N = 5
-    max_epochs = 10
+    min_N = 6
+    max_N = 6
+    max_epochs = 50
     epoch_interval = 1
-    n_samples = 200
+    n_samples = 100
     use_node_order = True
 
     node_order_string = 'o_' if use_node_order else ''

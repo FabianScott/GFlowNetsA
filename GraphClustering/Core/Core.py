@@ -1092,6 +1092,7 @@ def compare_results_small_graphs(filename,
                                  max_epochs=100,
                                  epoch_interval=10,
                                  n_samples=100,
+                                 n_samples_distribution=2000,
                                  run_test=False,
                                  using_backward_model=False,
                                  train_mixed=False,
@@ -1139,23 +1140,24 @@ def compare_results_small_graphs(filename,
             #     for i in range(n_samples):
             #         X[i] =
 
-            X = net.sample_forward(adjacency_matrix, n_samples=n_samples)
+            # X = net.sample_forward(adjacency_matrix, n_samples=n_samples)
 
             cluster_post = allPosteriors(adjacency_matrix, a, b, A_alpha, log=True, joint=False)
-            cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
-                                                               log=True,
-                                                               fix=False)
-            fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
+            # cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
+            #                                                    log=True,
+            #                                                    fix=False)
+            X1 = net.sample_forward(adjacency_matrix, n_samples=n_samples_distribution)
+            sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
             sort_idx = np.argsort(cluster_post)
-            difference = sum(abs(cluster_post[sort_idx] - fixed_probs.detach().numpy()[sort_idx]))
+            difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
             file.write(f'{difference},')
-            for epochs in range(0, max_epochs, epoch_interval):
-                losses = net.train(X, epochs=epoch_interval, verbose=True)
-                cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
-                                                                                log=True,
-                                                                                fix=False)
+            for epochs in range(0, max_epochs + epoch_interval, epoch_interval):
+                losses = net.train(X1, epochs=epoch_interval * (epochs != 0), verbose=True)
+                # cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
+                #                                                                 log=True,
+                #                                                                 fix=False)
                 # fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
-                X1 = net.sample_forward(adjacency_matrix, n_samples=1000)
+                X1 = net.sample_forward(adjacency_matrix, n_samples=n_samples_distribution, timer=True)
                 sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
                 sort_idx = np.argsort(cluster_post)
                 difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
@@ -1163,7 +1165,11 @@ def compare_results_small_graphs(filename,
             file.write('\n')
             fully_trained_networks.append(net)
             if plot_last:
-                plot_posterior(cluster_post, sort_idx=sort_idx, net_posteriors_numpy=fixed_probs.detach().numpy(), sample_posteriors_numpy=sample_posteriors_numpy)
+                plot_posterior(cluster_post,
+                               sort_idx=sort_idx,
+                               net_posteriors_numpy=None,
+                               sample_posteriors_numpy=sample_posteriors_numpy,
+                               saveFilename=f'Plots/PosteriorPlot_{N}_{max_epochs}_{n_samples_distribution}.png')
 
         if run_test:
             test_results = []
@@ -1188,7 +1194,7 @@ def compare_results_small_graphs(filename,
     return fully_trained_networks
 
 
-def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, log = True):
+def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, log = True, saveFilename=''):
     log_string = " Log " if log else " "
     order = "index" if (sort_idx is None) else "Magnitude"
     xlab = "Cluster Index" if (sort_idx is None) else "Sorted Cluster Index"
@@ -1210,6 +1216,8 @@ def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, s
     plt.legend(["Exact values", "From Network", "Sampled Empirically"])
     # plt.ylim(0, -5)
     plt.tight_layout()
+    if saveFilename:
+        plt.savefig(saveFilename)
     plt.show()
     return
 
@@ -1470,7 +1478,7 @@ if __name__ == '__main__':
     net2 = GraphNet(n_nodes=adjacency_matrix.size()[0], a=a, b=b, A_alpha=A_alpha, using_backward_model=True)
     net2.save()
     net2.load_forward()
-    net2.load_backward()
+    # net2.load_backward()
     X1 = net2.sample_forward(adjacency_matrix)
     losses2 = net2.train(X1, epochs=100)
     net2.plot_full_distribution(adjacency_matrix)
