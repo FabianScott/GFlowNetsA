@@ -79,12 +79,12 @@ if __name__ == '__main__':
     """
     check_gpu()
     # 9000 for the n_layers=5, n_hidden=64
-    n_samples = 9_000
+    n_samples = 10_000
     epoch_interval = 100
     min_epochs = 0
     max_epochs = 500
     node_order = True
-    folder_and_forward_slash = 'Data/'
+    folder_and_forward_slash = 'Data/New'
 
     Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
     net = GraphNetNodeOrder(Adj_karate.shape[0], n_layers=5, n_hidden=64) if node_order else GraphNet(Adj_karate.shape[0])
