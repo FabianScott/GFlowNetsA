@@ -1179,15 +1179,22 @@ def compare_results_small_graphs(filename,
                 adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
 
                 cluster_post = allPosteriors(adjacency_matrix_test, a, b, A_alpha, log=True, joint=False)
-                X = network.sample_forward(adjacency_matrix_test, n_samples=n_samples)
 
-                for epochs in range(0, max_epochs + 1, epoch_interval):
-                    losses = network.train(X, epochs=epoch_interval, verbose=True)
-                    cluster_prob_dict, fixed_probs = network.full_sample_distribution_G(
-                        adjacency_matrix=adjacency_matrix_test,
-                        log=True,
-                        fix=True)
-                    difference = sum(abs(cluster_post - fixed_probs.detach().numpy()))
+                X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution)
+                sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
+                sort_idx = np.argsort(cluster_post)
+                difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
+                test_temp.append(difference)
+                for epochs in range(0, max_epochs + epoch_interval, epoch_interval):
+                    losses = net.train(X1, epochs=epoch_interval * (epochs != 0), verbose=True)
+                    # cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
+                    #                                                                 log=True,
+                    #                                                                 fix=False)
+                    # fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
+                    X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution, timer=True)
+                    sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
+                    sort_idx = np.argsort(cluster_post)
+                    difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
                     test_temp.append(difference)
                 test_results.append(test_temp)
             pd.DataFrame(test_results).to_csv(filename[:-4] + '_TEST.csv')
