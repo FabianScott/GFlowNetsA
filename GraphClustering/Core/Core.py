@@ -1151,8 +1151,8 @@ def compare_results_small_graphs(filename,
             sort_idx = np.argsort(cluster_post)
             difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
             file.write(f'{difference},')
-            for epochs in range(0, max_epochs + epoch_interval, epoch_interval):
-                losses = net.train(X1, epochs=epoch_interval * (epochs != 0), verbose=True)
+            for epochs in tqdm(range(0, max_epochs + epoch_interval, epoch_interval), desc='Epoch iteration'):
+                losses = net.train(X1, epochs=epoch_interval, verbose=True)
                 # cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
                 #                                                                 log=True,
                 #                                                                 fix=False)
@@ -1185,8 +1185,8 @@ def compare_results_small_graphs(filename,
                 sort_idx = np.argsort(cluster_post)
                 difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
                 test_temp.append(difference)
-                for epochs in range(0, max_epochs + epoch_interval, epoch_interval):
-                    losses = net.train(X1, epochs=epoch_interval * (epochs != 0), verbose=True)
+                for epochs in tqdm(range(0, max_epochs + epoch_interval, epoch_interval), desc='Epoch Iteration'):
+                    losses = net.train(X1, epochs=epoch_interval, verbose=True)
                     # cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
                     #                                                                 log=True,
                     #                                                                 fix=False)
