@@ -71,57 +71,13 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
     return IRM_lists, sort_idxs
 
 
-def getTopClusterings(states, n=10, csvFilename=''):  # , plot=False, saveFilename='', title='', nbins=100)
-    """
-    Given an iterable of tensors that represent states,
-    return the top 10 most common states and potentially
-    save them as csv files
-    :param states:
-    :param n:
-    :param csvFilename:
-    :return:
-    """
-    # Use a defaultdict for ease
-    cluster_lists = defaultdict(return_0)
-    # IRM_list = []
-    for state in tqdm(states, desc='Counting most common states'):
-        adj_mat, cluster_mat = net.get_matrices_from_state(state)
-        cluster_list, _ = net.get_clustering_list(cluster_mat)
-        if not sum(cluster_list == 0):
-            cluster_list -= 1
-        # IRM_value = int(torch_posterior(adj_mat, cluster_list))
-        # IRM_list.append(IRM_value)
-        cluster_lists[tuple(cluster_list.detach().numpy())] += 1
-
-    # Put the dictionary values into lists so numpy can sort them
-    clusters = []
-    counts = []
-    for cluster, count in cluster_lists.items():
-        clusters.append(cluster)
-        counts.append(count)
-    sort_idx = np.argsort(counts)
-    top_n = np.array(clusters)[sort_idx[-n:]]
-    if csvFilename: pd.DataFrame(top_n).to_csv(csvFilename)
-    # if plot:
-    #     plt.hist(np.array(counts)[sort_idx], label='Cluster Count', bins=nbins)
-    #     # plt.xlabel('Cluster order')
-    #     plt.ylabel('Counts')
-    #     plt.title(title)
-    #     plt.legend()
-    #     plt.show()
-    #     if saveFilename:
-    #         plt.savefig(saveFilename)
-
-    return top_n
-
-
 if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
-    prefixString = 'Gibbs'
+    prefixString = 'GibbsHalf'
     epochs = 0
     for epochs in range(0, 300, 100):
         net = GraphNet(n_nodes=34)
-        fname = f'Data/{prefixString}KarateResults_0_500_10001_o_Samples_{epochs}.pt'
+        fname = f'Data/{prefixString}KarateResults_0_500_10000_o_Samples_{epochs}.pt'
         netSamples = net.load_samples(fname)
 
         # Load the adjacency matrix to create the state vector, used by the plotting function
@@ -141,6 +97,3 @@ if __name__ == '__main__':
                               filenameSave=f'Plots/{prefixString}ComparisonGraph10000Samples_{epochs}.png',
                               topNFilename=f'Data/{prefixString}TopClusterings_{epochs}_',
                               n=5)
-
-        # topClustersNet = getTopClusterings(netSamples, n=5, csvFilename=.csv')
-        # topClustersGibbs = getTopClusterings(gibbsSamplesPlotable, n=5, csvFilename=f'Data/{prefixString}TopClusteringsGibbs_{epochs}.csv')
