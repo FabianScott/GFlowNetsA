@@ -3,8 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    df = pd.read_csv('Data/Final_Comparison_test_o_100_1_2_5.txt', sep=',')
-    df2 = pd.read_csv('Data/Final_Comparison_test_o_100_1_6_6.txt', sep=',')
+    df = pd.read_csv('Data/New_Final_Comparison_test_o_101_1_2_5.txt', sep=',')
+    df2 = pd.read_csv('Data/New_Final_Comparison_test_o_101_1_6_6.txt', sep=',')
 
     for i, row in enumerate(df.values[:-1]):
         plt.plot(row[:-1], label=f'{i+2}')
