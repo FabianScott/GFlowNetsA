@@ -14,9 +14,9 @@ from GraphClustering.Network.Full_Distribution import get_clustering_matrix, get
 if __name__ == '__main__':
     N = 3
     a, b, A_alpha = 1, 1, 1
-    log = True
+    log = False
     A_adj = np.array([[0,0,1],[0,0,1],[1,1,0]])
-    A_adj_torch = torch.from_numpy(A_adj)
+    A_adj_torch = torch.from_numpy(A_adj).float()
     plt.figure()
     plt.imshow(A_adj)
     plt.show()
