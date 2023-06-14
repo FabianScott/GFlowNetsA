@@ -1,7 +1,7 @@
 try:
-    from Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu
+    from Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch
 except ModuleNotFoundError:
-    from GraphClustering.Core.Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu
+    from GraphClustering.Core.Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch
 from copy import deepcopy
 import networkx as nx
 import pandas as pd
@@ -34,7 +34,10 @@ def train_and_save(net, X1, adjacency_matrix, epochs, n_samples, array1, array2,
     :return:
     """
     net.train(X1, epochs=epochs)  # Train an extra epoch interval
-    X2 = net.sample_forward(adjacency_matrix, n_samples=n_samples, timer=True, saveFilename=filename1[:-4] + f'_Samples_{i*epoch_interval}')
+    X2 = net.sample_forward(adjacency_matrix,
+                            n_samples=n_samples,
+                            timer=True,
+                            saveFilename=filename1[:-4] + f'_Samples_{i*epoch_interval}')
     print(filename1, filename1[:-4] + '_Samples')
     net_values1, IRM_values1 = [], []
 
@@ -79,12 +82,12 @@ if __name__ == '__main__':
     """
     check_gpu()
     # 9000 for the n_layers=5, n_hidden=64
-    n_samples = 1
+    n_samples = 10000
     epoch_interval = 100
     min_epochs = 0
     max_epochs = 500
     node_order = True
-    folder_and_forward_slash = 'Data/New'
+    folder_and_forward_slash = 'Data/Gibbs'
 
     Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
     net = GraphNetNodeOrder(Adj_karate.shape[0], n_layers=5, n_hidden=64) if node_order else GraphNet(Adj_karate.shape[0])
