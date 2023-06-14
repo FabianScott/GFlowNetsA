@@ -7,12 +7,85 @@ Created on Wed Jun  7 09:58:48 2023
 
 from manim import *
 import numpy as np
+import networkx as nx
 config.background_color = WHITE
 '''
 Kommandoer (til egen maskine...):
-cd C:\\Users\\nikol\\Desktop\\Studie\\Projekt\\Animation
-manim -pql AnimTest.py MovingDiGraph()
+cd C:\\Users\\nikol\\Documents\\GitHub\\GFlowNetsA\\GraphClustering
+manim -sql Illustrations.py MovingDiGraph()
 '''
+
+class KarateClusterings(Scene):
+    def construct(self):
+        def clusterform(clusterlist):
+            clusters = np.unique(clusterlist)
+            clustering = []
+            for i in clusters:
+                clustering.append(list(np.where(clusterlist==i)[0]))
+            
+            return clustering
+            
+        graph = nx.karate_club_graph()
+        
+        vertices = [i for i in range(0,34)]
+        
+        vertex_config = {"fill_color": BLACK,
+                         0: {"fill_color": RED, "radius": 0.3},
+                         33: {"fill_color": GREEN, "radius": 0.3}}
+        
+        edge_config = {"stroke_color": BLACK}
+        
+        edges = [edge for edge in graph.edges]
+        
+        layout = {0: [-1, 0, 0], 33: [1, 0, 0], 1: [-4, 2, 0],
+                  2: [-3.3, 2, 0], 3: [-2.7, 2, 0], 4: [-2, 2, 0],
+                  5: [-4, 1, 0], 6: [-3.3, 1, 0], 7: [-2.7, 1, 0],
+                  10: [-2, 1, 0], 11: [-4, 0, 0], 12: [-3.3, 0, 0],
+                  16: [-2.7, 0, 0], 17: [-2, 0, 0], 21: [-4, -1, 0],
+                  8: [4, 2, 0], 13: [2.7, 2, 0], 19: [-2, -1, 0],
+                  9: [3.3, 2, 0], 14: [2, 2, 0], 15: [4, 1, 0],
+                  18: [3.3, 1, 0], 20: [2.7, 1, 0], 22: [2, 1, 0],
+                  23: [4, 0, 0], 24: [3.3, 0, 0], 25: [2.7, 0, 0],
+                  26: [2, 0, 0], 27: [4, -1, 0], 28: [3.3, -1, 0],
+                  29: [2.7, -1, 0], 30: [2, -1, 0], 31: [4, -2, 0],
+                  32: [3.3, -2, 0]}
+        
+        clustering = [[0,1,2,3,4,5,6,7,10,11,12,16,17,21,8,13,19],
+                      [8,9,13,14,15,18,20,22,23,24,25,26,27,28,29,30,31,32, 33]]
+        
+        colors = [RED,GREEN,BLUE,YELLOW_D,ORANGE,PURPLE,GREY]
+        
+        for c, cluster in enumerate(clustering):
+            for node in cluster:
+                vertex_config.update({node: {"fill_color": colors[c], "radius": 0.3}})
+
+                
+        g = Graph(vertices,
+                  edges,
+                  edge_config=edge_config,
+                  vertex_config = vertex_config,
+                  layout=layout,
+                  labels=True).scale(0.7).shift(LEFT*3.5)
+        
+        # Compare with
+        
+        clusterlist = np.array([0]*12+[1]*22)
+        
+        clustering = clusterform(clusterlist)
+        
+        for c, cluster in enumerate(clustering):
+            for node in cluster:
+                vertex_config.update({node: {"fill_color": colors[c], "radius": 0.3}})
+        
+        g2 = Graph(vertices,
+                  edges,
+                  edge_config=edge_config,
+                  vertex_config = vertex_config,
+                  layout=layout,
+                  labels=True).scale(0.7).shift(RIGHT*3.5)
+        
+        self.add(g,g2)
+        self.wait(2)
 
 class FlowNet(Scene):
     def construct(self):
@@ -411,7 +484,7 @@ class IRMgenT(Scene):
         crp[0][13].set_color(YELLOW_D)
         crp[0][15].set_color(BLUE)
         
-        irm1 = VGroup(g.scale(0.9).move_to([0,-1,0]), crp.move_to([0,3.5,0]))
+        irm1 = VGroup(g.scale(0.8).move_to([0,-1.5,0]), crp.move_to([0,1.6,0]))
         
         #####################################################
         
@@ -515,9 +588,9 @@ class IRMgenT(Scene):
         
         ######################################################
         
-        scale = 0.3
+        scale = 0.5
         
-        self.add(VGroup(irm1.scale(scale),irm2.scale(scale),irm3.scale(scale)).arrange(RIGHT))
+        self.add(VGroup(irm1.scale(scale),irm2.scale(scale),irm3.scale(scale)).arrange(RIGHT, buff=0.4))
         self.wait()
         
         
