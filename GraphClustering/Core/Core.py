@@ -1177,7 +1177,7 @@ def compare_results_small_graphs(filename,
                 gibbsDistribution = empiricalSampleDistribution(tempSamples, N, net, numpy=True, log=True)
                 inf_mask = gibbsDistribution == -np.inf
                 gibbsDistribution[inf_mask] = np.min(gibbsDistribution[np.logical_not(inf_mask)])
-
+                net.save(f'Data/SmallNet_{N}_{max_epochs}')
                 plot_posterior(cluster_post,
                                sort_idx=sort_idx,
                                net_posteriors_numpy=None,
@@ -1217,6 +1217,7 @@ def compare_results_small_graphs(filename,
                     test_temp.append(difference)
 
                 if plot_last:
+                    net.save(f'Data/SmallNet_{N}_{max_epochs}')
                     gibbsSamples = Gibbs_sample_torch(adjacency_matrix_test, n_samples_distribution * 2,
                                                       return_clustering_matrix=True)
                     tempSamples = torch.zeros((n_samples_distribution, N ** 2 * 2))
@@ -1239,7 +1240,7 @@ def compare_results_small_graphs(filename,
     return fully_trained_networks
 
 
-def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, gibbs_sample_posteriors=None, log = True, saveFilename='', title=''):
+def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, gibbs_sample_posteriors=None, log = True, saveFilename='', title='', alpha=.6):
     log_string = " Log " if log else " "
     order = "index" if (sort_idx is None) else "Magnitude"
     xlab = "Cluster Index" if (sort_idx is None) else "Sorted Cluster Index"
@@ -1252,16 +1253,16 @@ def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, s
     else:
         plt.title('Cluster Posterior' + log_string + 'Probabilites by ' + order + from_network)
     if not log: cluster_post = np.exp(cluster_post)
-    plt.plot(cluster_post[sort_idx], "bo", label="Exact values")
+    plt.plot(cluster_post[sort_idx], "bo", label="Exact values", alpha=alpha)
     if net_posteriors_numpy is not None:
         if not log: net_posteriors_numpy = np.exp(net_posteriors_numpy)
-        plt.plot(net_posteriors_numpy[sort_idx], "go", markersize=4, label="From Network")
+        plt.plot(net_posteriors_numpy[sort_idx], "go", markersize=4, label="From Network", alpha=alpha)
     if sample_posteriors_numpy is not None:
         if not log: sample_posteriors_numpy = np.exp(sample_posteriors_numpy)
-        plt.plot(sample_posteriors_numpy[sort_idx], "gx", label="GFlowNet Sampled Empirically")
+        plt.plot(sample_posteriors_numpy[sort_idx], "gx", label="GFlowNet Sampled Empirically", alpha=alpha)
     if gibbs_sample_posteriors is not None:
         if not log: gibbs_sample_posteriors = np.exp(gibbs_sample_posteriors)
-        plt.plot(gibbs_sample_posteriors[sort_idx], "ro", label="Gibbs Sampled Empirically")
+        plt.plot(gibbs_sample_posteriors[sort_idx], "ro", label="Gibbs Sampled Empirically", alpha=alpha)
 
     plt.xlabel(xlab)
     plt.ylabel("Posterior Probability")
