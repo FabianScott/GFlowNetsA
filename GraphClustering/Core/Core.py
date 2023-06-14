@@ -1192,9 +1192,7 @@ def compare_results_small_graphs(filename,
                 N = net.n_nodes
                 test_temp = []
                 adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
-
                 cluster_post = allPosteriors(adjacency_matrix_test, a, b, A_alpha, log=True, joint=False)
-
                 X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution)
                 sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
                 inf_mask = sample_posteriors_numpy == -np.inf
