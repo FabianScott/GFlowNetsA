@@ -105,7 +105,7 @@ if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
     epochs = 0
     topClustersList = []
-    for epochs in range(100, 200, 100):
+    for epochs in range(200, 501, 100):
         net = GraphNet(n_nodes=34)
         fname = f'Data/NewKarateResults_0_500_10000_o_Samples_{epochs}.pt'
         netSamples = net.load_samples(fname)
