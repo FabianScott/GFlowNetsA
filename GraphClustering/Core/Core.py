@@ -1414,7 +1414,7 @@ def Gibbs_sample_torch(A, T, burn_in_buffer=None, sample_interval=None, seed=42,
         Parameters for the beta distribution prior for the cluster connectivities and concentration.
         a = b = 1 yields a uniform distribution.
         A_alpha is the total cluster concentration parameter.
-    return_clustering_matrix: (bool) a list of full clustering adjacency matrices instead of partial one-hot encoded clustering matrices.
+    return_clustering_matrix: (bool) a list of full clustering (adjacency) matrices instead of partial one-hot encoded clustering matrices.
 
     Return
     ----------
