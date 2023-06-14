@@ -41,4 +41,10 @@ Sørgsmål til Mikkel:
     Mikkel Suggestions:
         - Define Matlab like onehot clustering matrix. C matrix is the product of that and itself. 
             - (This representation is used extensively in the IRM and Gibbs code)
-
+    Gibbs + GFlow collab:
+    - Start with Gibbs samples to seed GFlowNet
+    - Use Gibbs during training, but starting with a clustering found by the GFlowNet
+        - How to choose?
+            - Calculate IRM (Which one to chose)
+            - Random (leading to the expected value on average)
+        - Use samples from both methods?

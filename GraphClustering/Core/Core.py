@@ -1400,7 +1400,7 @@ def Gibbs_sample_np(A, T, burn_in_buffer=None, sample_interval=None, seed=42, a=
 
 
 def Gibbs_sample_torch(A, T, burn_in_buffer=None, sample_interval=None, seed=42, a=1, b=1, A_alpha=1,
-                       return_clustering_matrix=True):
+                       return_clustering_matrix=True, z = None):
     """Perform one Gibbs sweep with a specified node order to yield one sampled clustering.
 
     Parameters
@@ -1414,6 +1414,7 @@ def Gibbs_sample_torch(A, T, burn_in_buffer=None, sample_interval=None, seed=42,
         Parameters for the beta distribution prior for the cluster connectivities and concentration.
         a = b = 1 yields a uniform distribution.
         A_alpha is the total cluster concentration parameter.
+    z : (torch.tensor) (N, 1) initial clustering to explore from, by default torch.ones((N,1))
     return_clustering_matrix: (bool) a list of full clustering (adjacency) matrices instead of partial one-hot encoded clustering matrices.
 
     Return
@@ -1425,7 +1426,7 @@ def Gibbs_sample_torch(A, T, burn_in_buffer=None, sample_interval=None, seed=42,
     A[torch.arange(N), torch.arange(N)] //= 2  # Assume nodes aren't connected to themselves.
     # z_f = np.zeros((N,N)) # z_full. Take all the memory I need, which is not that much.
     # z_f[:, 0] = 1 # Initialize everthing to be in the first cluster.
-    z = torch.ones((N, 1))
+    z = torch.ones((N, 1)) if z is None else z
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     Z = []
