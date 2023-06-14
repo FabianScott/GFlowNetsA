@@ -17,7 +17,6 @@ manim -sql Illustrations.py MovingDiGraph()
 
 class KarateClusterings(Scene):
     def construct(self):
-        
         def clusterform(clusterlist):
             clusters = np.unique(clusterlist)
             clustering = []
