@@ -37,6 +37,7 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
                 cluster_list -= 1
             IRM_value = int(torch_posterior(adj_mat, cluster_list))
             IRM_list.append(IRM_value)
+
         IRM_list = np.array(IRM_list)
         sort_idxs.append(np.argsort(IRM_list))
         IRM_list = sorted(IRM_list)
@@ -69,14 +70,14 @@ def getTopClusterings(states, n=10, csvFilename=''):  # , plot=False, saveFilena
 
     # Use a defaultdict for ease
     cluster_lists = defaultdict(return_0)
-    IRM_list = []
+    # IRM_list = []
     for state in tqdm(states, desc='Counting most common states'):
         adj_mat, cluster_mat = net.get_matrices_from_state(state)
         cluster_list, _ = net.get_clustering_list(cluster_mat)
         if not sum(cluster_list == 0):
             cluster_list -= 1
-        IRM_value = int(torch_posterior(adj_mat, cluster_list))
-        IRM_list.append(IRM_value)
+        # IRM_value = int(torch_posterior(adj_mat, cluster_list))
+        # IRM_list.append(IRM_value)
         cluster_lists[tuple(cluster_list.detach().numpy())] += 1
 
     # Put the dictionary values into lists so numpy can sort them
@@ -103,11 +104,12 @@ def getTopClusterings(states, n=10, csvFilename=''):  # , plot=False, saveFilena
 
 if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
+    prefixString = 'Gibbs'
     epochs = 0
     topClustersList = []
-    for epochs in range(200, 501, 100):
+    for epochs in range(0, 200, 100):
         net = GraphNet(n_nodes=34)
-        fname = f'Data/NewKarateResults_0_500_10000_o_Samples_{epochs}.pt'
+        fname = f'Data/{prefixString}KarateResults_0_500_10001_o_Samples_{epochs}.pt'
         netSamples = net.load_samples(fname)
 
         # Load the adjacency matrix to create the state vector, used by the plotting function
@@ -124,8 +126,8 @@ if __name__ == '__main__':
         I = compareIRMSamples([netSamples, gibbsSamplesPlotable],
                               names=['GFlowNet', 'Gibbs Sampler'],
                               title=f'Histogram of log IRM values for GFlowNet vs GibbsSampler\non Zachary Karate Club graph after {epochs} epochs',
-                              filenameSave=f'Plots/NewComparisonGraph10000Samples_{epochs}.png')
+                              filenameSave=f'Plots/{prefixString}ComparisonGraph10000Samples_{epochs}.png')
 
-        topClustersNet = getTopClusterings(netSamples, n=5, csvFilename=f'Data/NewTopClusteringsGFlowNet_{epochs}.csv')
-        topClustersGibbs = getTopClusterings(gibbsSamplesPlotable, n=5, csvFilename=f'Data/NewTopClusteringsGibbs_{epochs}.csv')
+        topClustersNet = getTopClusterings(netSamples, n=5, csvFilename=f'Data/{prefixString}TopClusteringsGFlowNet_{epochs}.csv')
+        topClustersGibbs = getTopClusterings(gibbsSamplesPlotable, n=5, csvFilename=f'Data/{prefixString}TopClusteringsGibbs_{epochs}.csv')
         topClustersList.append([topClustersNet, topClustersGibbs])
