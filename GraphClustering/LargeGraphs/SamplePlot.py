@@ -12,7 +12,11 @@ sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(), "..", "Data"))
 
 
-def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', title=''):
+def return_0():
+    return 0
+
+
+def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', title='', n=5, topNFilename=''):
     """
     Plot a histogram of clusterings per IRM values.
     Can also save the plots.
@@ -21,6 +25,7 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
     :param names:
     :param filenameSave:
     :param title:
+    :param topNFilename: Will be postfixed using the name provided in names
     :return:
     """
     if names is None:
@@ -28,6 +33,8 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
     # tensorsFlat = torch.concat(tensors, dim=0)
     IRM_lists = []
     sort_idxs = []
+    cluster_lists = defaultdict(return_0)
+
     for name, tensors in zip(names, tensors):
         IRM_list = []
         for state in tqdm(tensors, desc=f'Calculating IRM for {name} States'):
@@ -37,12 +44,21 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
                 cluster_list -= 1
             IRM_value = int(torch_posterior(adj_mat, cluster_list))
             IRM_list.append(IRM_value)
+            cluster_lists[tuple(cluster_list.detach().numpy())] += 1
 
         IRM_list = np.array(IRM_list)
         sort_idxs.append(np.argsort(IRM_list))
         IRM_list = sorted(IRM_list)
         plt.hist(IRM_list, label=name, bins=nbins, alpha=0.6)
         IRM_lists.append(IRM_list)
+        clusters = []
+        counts = []
+        for cluster, count in cluster_lists.items():
+            clusters.append(cluster)
+            counts.append(count)
+        sort_idx = np.argsort(counts)
+        top_n = np.array(clusters)[sort_idx[-n:]]
+        if topNFilename: pd.DataFrame(top_n).to_csv(topNFilename + name + '.csv')
         print(f'For {name} we find \tMean: {np.mean(IRM_list)}\tMode: {stats.mode(IRM_list)}\tMax: {np.max(IRM_list)}')
     plt.ylabel('Count')
     plt.xlabel('Log IRM Values')
@@ -65,9 +81,6 @@ def getTopClusterings(states, n=10, csvFilename=''):  # , plot=False, saveFilena
     :param csvFilename:
     :return:
     """
-    def return_0():
-        return 0
-
     # Use a defaultdict for ease
     cluster_lists = defaultdict(return_0)
     # IRM_list = []
@@ -106,8 +119,7 @@ if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
     prefixString = 'Gibbs'
     epochs = 0
-    topClustersList = []
-    for epochs in range(0, 200, 100):
+    for epochs in range(0, 300, 100):
         net = GraphNet(n_nodes=34)
         fname = f'Data/{prefixString}KarateResults_0_500_10001_o_Samples_{epochs}.pt'
         netSamples = net.load_samples(fname)
@@ -126,8 +138,9 @@ if __name__ == '__main__':
         I = compareIRMSamples([netSamples, gibbsSamplesPlotable],
                               names=['GFlowNet', 'Gibbs Sampler'],
                               title=f'Histogram of log IRM values for GFlowNet vs GibbsSampler\non Zachary Karate Club graph after {epochs} epochs',
-                              filenameSave=f'Plots/{prefixString}ComparisonGraph10000Samples_{epochs}.png')
+                              filenameSave=f'Plots/{prefixString}ComparisonGraph10000Samples_{epochs}.png',
+                              topNFilename=f'Data/{prefixString}TopClusterings_{epochs}_',
+                              n=5)
 
-        topClustersNet = getTopClusterings(netSamples, n=5, csvFilename=f'Data/{prefixString}TopClusteringsGFlowNet_{epochs}.csv')
-        topClustersGibbs = getTopClusterings(gibbsSamplesPlotable, n=5, csvFilename=f'Data/{prefixString}TopClusteringsGibbs_{epochs}.csv')
-        topClustersList.append([topClustersNet, topClustersGibbs])
+        # topClustersNet = getTopClusterings(netSamples, n=5, csvFilename=.csv')
+        # topClustersGibbs = getTopClusterings(gibbsSamplesPlotable, n=5, csvFilename=f'Data/{prefixString}TopClusteringsGibbs_{epochs}.csv')
