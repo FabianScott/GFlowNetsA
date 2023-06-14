@@ -7,6 +7,7 @@ Created on Wed Jun  7 09:58:48 2023
 
 from manim import *
 import numpy as np
+import pandas as pd
 import networkx as nx
 config.background_color = WHITE
 '''
@@ -68,6 +69,7 @@ class KarateClusterings(Scene):
                   labels=True).scale(0.7).shift(LEFT*3.5)
         
         # Compare with
+        top_clusters = pd.read_csv()
         
         clusterlist = np.array([0]*12+[1]*22)
         
