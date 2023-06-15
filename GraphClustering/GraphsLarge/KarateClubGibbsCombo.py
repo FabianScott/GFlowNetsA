@@ -37,7 +37,7 @@ if __name__ == '__main__':
     folder_and_forward_slash = 'Data/GibbsHalf'
     filename1 = f'{folder_and_forward_slash}KarateResults_{min_epochs}_{max_epochs}_{n_samples}_o.csv' if node_order else f'{folder_and_forward_slash}KarateResults_{min_epochs}_{max_epochs}_{n_samples}.csv'
 
-    Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
+    Adj_karate = torch.tensor(pd.read_csv("Data/Adj_karate.csv", header=None, dtype=int).to_numpy())
     net = GraphNetNodeOrder(Adj_karate.shape[0], n_layers=5, n_hidden=64) if node_order else GraphNet(
         Adj_karate.shape[0])
     net.save(

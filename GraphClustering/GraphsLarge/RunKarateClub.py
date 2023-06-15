@@ -27,34 +27,37 @@ if __name__ == '__main__':
     of the IRM values for the sampled states.
     """
     check_gpu()
-    # 9000 for the n_layers=5, n_hidden=64
-    n_samples = 10000
-    epoch_interval = 100
+    # Parameters to set:
+    n_samples = 1
+    epoch_interval = 1
     min_epochs = 0
-    max_epochs = 500
+    max_epochs = 1
     node_order = True
     GibbsStart = True
-    folder_and_forward_slash = 'Data/Gibbs'
-    filename1 = f'{folder_and_forward_slash}KarateResults_{min_epochs}_{max_epochs}_{n_samples}_o.csv' if node_order else f'{folder_and_forward_slash}KarateResults_{min_epochs}_{max_epochs}_{n_samples}.csv'
+    prefix = ''
 
-    Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
+    # Filepaths created:
+    node_order_string = '_o' if node_order else ''
+    filepathSamples = f'Data/{prefix}Karate{min_epochs}_{max_epochs}_{n_samples}{node_order_string}'
+    filepathWeights = f'Weights/{prefix}Karate{min_epochs}_{max_epochs}_{n_samples}{node_order_string}'
+
+    # Load graph and network:
+    Adj_karate = torch.tensor(pd.read_csv("Data/Adj_karate.csv", header=None, dtype=int).to_numpy())
     net = GraphNetNodeOrder(Adj_karate.shape[0], n_layers=5, n_hidden=64) if node_order else GraphNet(
         Adj_karate.shape[0])
-    net.save(
-        prefix=f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_',
-        postfix=str(0))
+    net.save(prefix=filepathWeights, postfix=str(0))
 
+    # Initial sample:
     X1 = GibbsSampleStates(Adj_karate, n_samples=n_samples, N=net.n_nodes) if GibbsStart \
         else net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
-    torch.save(X1, filename1[:-4] + f'_Samples_{0}' + '.pt')
+    torch.save(X1, filepathSamples + f'_Samples_{0}' + '.pt')
 
+    # Sampling loop:
     for i in range(1, ((max_epochs - min_epochs) // epoch_interval) + 1):
         net.train(X1, epochs=epoch_interval // 2)  # Train an extra epoch interval
 
         X1 = net.sample_forward(Adj_karate,
                                 n_samples=n_samples,
                                 timer=True,
-                                saveFilename=filename1[:-4] + f'_Samples_{i * epoch_interval}')
-        net.save(
-            prefix=f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_',
-            postfix=str(epoch_interval * i))
+                                saveFilename=filepathSamples + f'_Samples_{i * epoch_interval}')
+        net.save(prefix=filepathWeights, postfix=str(epoch_interval * i))

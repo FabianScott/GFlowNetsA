@@ -32,34 +32,41 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
         names = [str(el) for el in range(1, 1 + len(tensors))]
     # tensorsFlat = torch.concat(tensors, dim=0)
     IRM_lists = []
-    sort_idxs = []
-    cluster_lists = defaultdict(return_0)
 
     for name, tensors in zip(names, tensors):
+        cluster_lists = defaultdict(return_0)
+
+        if name == 'Gibbs Sampler':
+            try:
+                IRM_list = pd.read_csv('Data/IRMGibbs.csv', index_col=0).values.T[0]
+                plt.hist(IRM_list, label=name, bins=nbins, alpha=0.6)
+                continue
+            except FileNotFoundError:
+                pass
         IRM_list = []
         for state in tqdm(tensors, desc=f'Calculating IRM for {name} States'):
             adj_mat, cluster_mat = net.get_matrices_from_state(state)
             cluster_list, _ = net.get_clustering_list(cluster_mat)
             if not sum(cluster_list == 0):
                 cluster_list -= 1
-            IRM_value = int(torch_posterior(adj_mat, cluster_list))
-            IRM_list.append(IRM_value)
+            IRM_list.append(int(torch_posterior(adj_mat, cluster_list)))
             cluster_lists[tuple(cluster_list.detach().numpy())] += 1
 
         IRM_list = np.array(IRM_list)
-        sort_idxs.append(np.argsort(IRM_list))
-        IRM_list = sorted(IRM_list)
+        if name == 'Gibbs Sampler':
+            pd.DataFrame(IRM_list).to_csv('Data/IRMGibbs.csv')
+
         plt.hist(IRM_list, label=name, bins=nbins, alpha=0.6)
-        IRM_lists.append(IRM_list)
-        clusters = []
-        counts = []
-        for cluster, count in cluster_lists.items():
-            clusters.append(cluster)
-            counts.append(count)
+
+        clusters = [cluster for cluster in cluster_lists.keys()]
+        counts = [count for count in cluster_lists.values()]
         sort_idx = np.argsort(counts)
+
         top_n = np.array(clusters)[sort_idx[-n:]]
         if topNFilename: pd.DataFrame(top_n).to_csv(topNFilename + name + '.csv')
-        print(f'For {name} we find \tMean: {np.mean(IRM_list)}\tMode: {stats.mode(IRM_list)}\tMax: {np.max(IRM_list)}')
+        print(
+            f'For {name} we find \tMean: {np.mean(IRM_list)}\tMode: {stats.mode(IRM_list)}\tMax: {np.max(IRM_list)}')
+        
     plt.ylabel('Count')
     plt.xlabel('Log IRM Values')
     plt.title(title)
@@ -68,7 +75,7 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
         plt.savefig(filenameSave)
     plt.show()
 
-    return IRM_lists, sort_idxs
+    return IRM_lists
 
 
 if __name__ == '__main__':
@@ -81,7 +88,7 @@ if __name__ == '__main__':
         netSamples = net.load_samples(fname)
 
         # Load the adjacency matrix to create the state vector, used by the plotting function
-        Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
+        Adj_karate = torch.tensor(pd.read_csv("Data/Adj_karate.csv", header=None, dtype=int).to_numpy())
 
         if run_Gibbs:
             gibbsSamples = Gibbs_sample_torch(torch.tensor(Adj_karate, dtype=torch.float32), T=len(netSamples) * 2,

@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 if __name__ == '__main__':
-    Adj_karate = torch.tensor(pd.read_csv("Adj_karate.csv", header=None, dtype=int).to_numpy())
+    Adj_karate = torch.tensor(pd.read_csv("Data/Adj_karate.csv", header=None, dtype=int).to_numpy())
 
     net = GraphNetNodeOrder(n_nodes=34)
     net.load_forward(prefix='Data/Karate_100_500_10000_o_', postfix='400')
