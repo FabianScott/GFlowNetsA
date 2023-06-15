@@ -73,9 +73,9 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
 
 if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
-    prefixString = 'GibbsHalf'
+    prefixString = 'Gibbs'
     epochs = 0
-    for epochs in range(0, 300, 100):
+    for epochs in range(100, 501, 100):
         net = GraphNet(n_nodes=34)
         fname = f'Data/{prefixString}KarateResults_0_500_10000_o_Samples_{epochs}.pt'
         netSamples = net.load_samples(fname)
