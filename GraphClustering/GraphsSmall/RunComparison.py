@@ -25,7 +25,4 @@ if __name__ == '__main__':
                                             max_epochs=max_epochs,
                                             epoch_interval=epoch_interval,
                                             use_fixed_node_order=use_node_order)
-    df26 = pd.read_csv(fname, sep=',', index_col=0)
-    print_Latex_table(df26.values, significantFigures=3,
-                      headerRow=range(0, max_epochs + epoch_interval, epoch_interval),
-                      indexColumn=[str(el) + ' & ' for el in range(min_N, max_N + 1)])
+

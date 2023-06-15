@@ -64,9 +64,8 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
 
         top_n = np.array(clusters)[sort_idx[-n:]]
         if topNFilename: pd.DataFrame(top_n).to_csv(topNFilename + name + '.csv')
-        print(
-            f'For {name} we find \tMean: {np.mean(IRM_list)}\tMode: {stats.mode(IRM_list)}\tMax: {np.max(IRM_list)}')
-        
+        print(f'\n{name}\tMean: {np.mean(IRM_list)}\tMode: {stats.mode(IRM_list)}\tMax: {np.max(IRM_list)}')
+
     plt.ylabel('Count')
     plt.xlabel('Log IRM Values')
     plt.title(title)
