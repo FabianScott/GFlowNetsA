@@ -12,7 +12,7 @@ def errorPlot(values, labels, alpha=1., prefix='', transfer=''):
               f'{labels[0] if len(labels) == 1 else str(labels[0]) + "-" + str(labels[-1])} nodes over time ' + transfer)
     plt.xlabel('Epochs')
     plt.ylabel('Error')
-    plt.savefig(f'Plots/{prefix}ErrorPlot2_4{transfer}.png')
+    plt.savefig(f'Plots/{prefix}ErrorPlot{labels[0] if len(labels) == 1 else str(labels[0]) + "_" + str(labels[-1])}{transfer}.png')
     plt.show()
 
 
