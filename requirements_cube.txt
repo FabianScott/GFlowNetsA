@@ -1,6 +1,0 @@
-numpy
-tensorflow
-matplotlib
-tensorflow_probability
-seaborn
-

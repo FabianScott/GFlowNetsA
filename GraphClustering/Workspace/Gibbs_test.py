@@ -13,7 +13,7 @@ except:  # Do not change this if it is unnecessary for you. Directly picking the
     sys.path.append(os.getcwd())  # This is really ugly
     from GraphClustering import GraphNet
 
-from GraphClustering.BasicIRM.IRM_post import Gibbs_sample_torch
+from GraphClustering.IRM.IRM_post import Gibbs_sample_torch
 from GraphClustering.Workspace.Full_Distribution import get_clustering_list, allPermutations, allPosteriors, create_graph, scramble_graph  #, clusters_all_index
 
 def clusters_all_index_np(clusters_all, specific_cluster_list):

@@ -10,7 +10,7 @@ except: # Do not change this if it is unnecessary for you. Directly picking the 
     print("Appending to sys path")
     sys.path.append(os.getcwd()) # This is really ugly
     from GraphClustering import GraphNet
-from GraphClustering.BasicIRM.IRM_post import Gibbs_sample_np
+from GraphClustering.IRM.IRM_post import Gibbs_sample_np
 
 if __name__ == '__main__':
     G = nx.karate_club_graph()

@@ -1,2 +1,9 @@
 /Illustrationer
 Illustrationer/Illustrations.py
+GraphClustering.egg-info
+GraphClustering/.idea
+GraphClustering/.ipynb_checkpoints
+GraphClustering/.vscode
+GraphClustering/PDFs
+#GraphClustering/Workspace # Only contains clutter
+ToDo.txt
