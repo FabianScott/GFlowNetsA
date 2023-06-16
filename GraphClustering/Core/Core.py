@@ -1147,7 +1147,7 @@ def compare_results_small_graphs(filename,
             #                                                    log=True,
             #                                                    fix=False)
             X1 = net.sample_forward(adjacency_matrix, n_samples=n_samples_distribution)
-            sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
+            sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
             sort_idx = np.argsort(cluster_post)
             inf_mask = sample_posteriors_numpy == -np.inf
             sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
@@ -1160,7 +1160,7 @@ def compare_results_small_graphs(filename,
                 #                                                                 fix=False)
                 # fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
                 X1 = net.sample_forward(adjacency_matrix, n_samples=n_samples_distribution, timer=True)
-                sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
+                sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
                 sort_idx = np.argsort(cluster_post)
                 inf_mask = sample_posteriors_numpy == -np.inf
                 sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
@@ -1174,7 +1174,7 @@ def compare_results_small_graphs(filename,
                 for i, sample in enumerate(gibbsSamples):
                     tempSamples[i] = torch.concat((adjacency_matrix.flatten(), torch.tensor(sample.flatten())))
                 # gibbsSamples = torch.tensor([ for sample in gibbsSamples])
-                gibbsDistribution = empiricalSampleDistribution(tempSamples, N, net, numpy=True, log=True)
+                gibbsDistribution = empiricalSampleDistribution(tempSamples, N, numpy=True, log=True)
                 inf_mask = gibbsDistribution == -np.inf
                 gibbsDistribution[inf_mask] = np.min(gibbsDistribution[np.logical_not(inf_mask)])
                 net.save(f'Data/SmallNet_{N}_{max_epochs}')
@@ -1194,7 +1194,7 @@ def compare_results_small_graphs(filename,
                 adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
                 cluster_post = allPosteriors(adjacency_matrix_test, a, b, A_alpha, log=True, joint=False)
                 X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution)
-                sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
+                sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
                 inf_mask = sample_posteriors_numpy == -np.inf
                 sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
                 sort_idx = np.argsort(cluster_post)
@@ -1207,7 +1207,7 @@ def compare_results_small_graphs(filename,
                     #                                                                 fix=False)
                     # fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
                     X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution, timer=True)
-                    sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
+                    sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
                     inf_mask = sample_posteriors_numpy == -np.inf
                     sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
                     sort_idx = np.argsort(cluster_post)
@@ -1222,7 +1222,7 @@ def compare_results_small_graphs(filename,
                     for i, sample in enumerate(gibbsSamples):
                         tempSamples[i] = torch.concat((adjacency_matrix_test.flatten(), torch.tensor(sample.flatten())))
                     # gibbsSamples = torch.tensor([ for sample in gibbsSamples])
-                    gibbsDistribution = empiricalSampleDistribution(tempSamples, N, net, numpy=True, log=True)
+                    gibbsDistribution = empiricalSampleDistribution(tempSamples, N, numpy=True, log=True)
                     inf_mask = gibbsDistribution == -np.inf
                     gibbsDistribution[inf_mask] = np.min(gibbsDistribution[np.logical_not(inf_mask)])
 
@@ -1497,9 +1497,24 @@ def clusters_all_index(clusters_all_tensor, specific_cluster_list):
     return cluster_ind
 
 
-def empiricalSampleDistribution(X1, n_nodes, net, numpy=False, log=True):
+def empiricalSampleDistribution(X1, n_nodes, numpy=False, log=True, mask_inf=True, minVal=None):
+    """
+    Count the sample distribution of a given set of samples.
+    Only possible for <7 node graphs, as this is the entire
+    distribution. Can replace unsampled states with a specified
+    minimum value or the minimum value seen.
+    :param X1:      iterable of tensors of states
+    :param n_nodes:
+    :param numpy:   (bool) return an np.array
+    :param log:     (bool) keep the values in the log domain
+    :param mask_inf:(bool) replace inf values
+    :param minVal:  (float)  if None, use the minimum value to replace inf with
+    :return:
+    """
+    net = GraphNet(n_nodes=n_nodes)
     clusters_all = allPermutations(n_nodes)
     clusters_all_tensor = torch.tensor(clusters_all + 1)
+
     # X1 = net.sample_forward(adjacency_matrix=adjacency_matrix, n_samples=n_samples)
 
     sample_posterior_counts = torch.zeros(len(clusters_all))
@@ -1515,7 +1530,13 @@ def empiricalSampleDistribution(X1, n_nodes, net, numpy=False, log=True):
         sample_posterior_probs = torch.log(sample_posterior_probs)
         assert -0.1 < torch.logsumexp(sample_posterior_probs, (0)) < 0.1
 
-    return sample_posterior_probs.detach().numpy() if numpy else sample_posterior_probs
+    sample_posteriors_numpy = sample_posterior_probs.detach().numpy()
+    if mask_inf:
+        inf_mask = sample_posteriors_numpy == -np.inf
+        sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)]) \
+            if minVal is None else minVal
+
+    return sample_posteriors_numpy if numpy else sample_posterior_probs
 
 
 # %% MAIN

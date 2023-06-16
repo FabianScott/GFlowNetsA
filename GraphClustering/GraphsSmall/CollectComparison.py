@@ -10,7 +10,7 @@ def transferLearning(fully_trained_networks, max_epochs, epoch_interval, n_sampl
         adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
         cluster_post = allPosteriors(adjacency_matrix_test, a, b, A_alpha, log=True, joint=False)
         X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution)
-        sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
+        sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
         inf_mask = sample_posteriors_numpy == -np.inf
         sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
         sort_idx = np.argsort(cluster_post)
@@ -23,7 +23,7 @@ def transferLearning(fully_trained_networks, max_epochs, epoch_interval, n_sampl
             #                                                                 fix=False)
             # fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
             X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution, timer=True)
-            sample_posteriors_numpy = empiricalSampleDistribution(X1, N, net, log=True, numpy=True)
+            sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
             inf_mask = sample_posteriors_numpy == -np.inf
             sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
             sort_idx = np.argsort(cluster_post)
@@ -37,7 +37,7 @@ def transferLearning(fully_trained_networks, max_epochs, epoch_interval, n_sampl
         for i, sample in enumerate(gibbsSamples):
             tempSamples[i] = torch.concat((adjacency_matrix_test.flatten(), torch.tensor(sample.flatten())))
         # gibbsSamples = torch.tensor([ for sample in gibbsSamples])
-        gibbsDistribution = empiricalSampleDistribution(tempSamples, N, net, numpy=True, log=True)
+        gibbsDistribution = empiricalSampleDistribution(tempSamples, N, numpy=True, log=True)
         inf_mask = gibbsDistribution == -np.inf
         gibbsDistribution[inf_mask] = np.min(gibbsDistribution[np.logical_not(inf_mask)])
 
