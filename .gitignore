@@ -7,3 +7,6 @@ GraphClustering/.vscode
 GraphClustering/PDFs
 #GraphClustering/Workspace # Only contains clutter
 ToDo.txt
+.idea
+.ipynb_checkpoints
+.vscode
