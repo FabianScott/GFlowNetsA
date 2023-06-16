@@ -8,7 +8,7 @@ from GraphClustering import GraphNet
 from GraphClustering import IRM_graph, clusterIndex
 from GraphClustering import Cmatrix_to_array, torch_posterior
 # from GraphClustering.IRM_post import Gibbs_sample_np, Gibbs_sample_torch
-from GraphClustering.Network.Full_Distribution import get_clustering_matrix, get_clustering_list, allPermutations, allPosteriors, create_graph, scramble_graph, fix_net_clusters #, clusters_all_index
+from GraphClustering.Workspace.Full_Distribution import get_clustering_matrix, get_clustering_list, allPermutations, allPosteriors, create_graph, scramble_graph, fix_net_clusters #, clusters_all_index
 
 
 if __name__ == '__main__':

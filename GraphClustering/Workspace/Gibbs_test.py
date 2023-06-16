@@ -2,7 +2,6 @@ import os
 # print(os.getcwd())  # You should be running this from the GFlowNetsA directory.
 import numpy as np
 import torch
-from scipy.special import logsumexp
 import matplotlib.pyplot as plt
 
 try:
@@ -14,10 +13,8 @@ except:  # Do not change this if it is unnecessary for you. Directly picking the
     sys.path.append(os.getcwd())  # This is really ugly
     from GraphClustering import GraphNet
 
-from GraphClustering import IRM_graph, clusterIndex
-from GraphClustering import Cmatrix_to_array, torch_posterior
-from GraphClustering.IRM_post import Gibbs_sample_np, Gibbs_sample_torch
-from GraphClustering.Network.Full_Distribution import get_clustering_matrix, get_clustering_list, allPermutations, allPosteriors, create_graph, scramble_graph, fix_net_clusters #, clusters_all_index
+from GraphClustering.BasicIRM.IRM_post import Gibbs_sample_torch
+from GraphClustering.Workspace.Full_Distribution import get_clustering_list, allPermutations, allPosteriors, create_graph, scramble_graph  #, clusters_all_index
 
 def clusters_all_index_np(clusters_all, specific_cluster_list):
     cluster_ind = np.argwhere(np.all(np.equal(clusters_all, specific_cluster_list), axis=1) == 1)[0][0]

@@ -1273,6 +1273,26 @@ def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, s
     return
 
 # %% Gibbs Sampler
+
+def GibbsSampleStates(adjacency_matrix, n_samples, N, z=None):
+    """
+    Samples states using the Gibbs Sampler and returns
+    them in a tensor compatible with the train function
+    of the GFlowNet object.
+    :param adjacency_matrix:
+    :param n_samples:
+    :param N:
+    :param z:
+    :return:
+    """
+    tempSamples = Gibbs_sample_torch(torch.tensor(adjacency_matrix, dtype=torch.float32), T=n_samples * 2, z=z)
+    X1 = torch.zeros((n_samples, N ** 2 * 2))
+
+    for i, sample in enumerate(tempSamples):
+        X1[i] = torch.concat((adjacency_matrix.flatten(), torch.tensor(sample.flatten())))
+    return X1
+
+
 def Gibbs_likelihood(A, C, a=0.5, b=0.5, log=True):
     # WRONG!!!
     """Calculate Gibbs_likelyhood as presented in Mikkel's paper.

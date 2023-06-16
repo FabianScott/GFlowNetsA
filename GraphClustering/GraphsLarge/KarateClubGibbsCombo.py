@@ -1,21 +1,13 @@
 try:
-    from Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch
+    from Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch, GibbsSampleStates
 except ModuleNotFoundError:
-    from GraphClustering.Core.Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch
+    from GraphClustering.Core.Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch, GibbsSampleStates
 from copy import deepcopy
 import networkx as nx
 import pandas as pd
 import numpy as np
 import torch
 
-
-def GibbsSampleStates(adjacency_matrix, n_samples, N, z=None):
-    tempSamples = Gibbs_sample_torch(torch.tensor(adjacency_matrix, dtype=torch.float32), T=n_samples * 2, z=z)
-    X1 = torch.zeros((n_samples, N ** 2 * 2))
-
-    for i, sample in enumerate(tempSamples):
-        X1[i] = torch.concat((adjacency_matrix.flatten(), torch.tensor(sample.flatten())))
-    return X1
 
 
 if __name__ == '__main__':
@@ -28,37 +20,43 @@ if __name__ == '__main__':
     """
     check_gpu()
     # 9000 for the n_layers=5, n_hidden=64
-    n_samples = 10000
-    epoch_interval = 100
+    n_samples = 10000   # Must be greater than 1
+    epoch_interval = 500
     min_epochs = 0
-    max_epochs = 500
+    max_epochs = 1000
     node_order = True
-    GibbsStart = True
+    GibbsStart = False
     folder_and_forward_slash = 'Data/GibbsHalf'
-    filename1 = f'{folder_and_forward_slash}KarateResults_{min_epochs}_{max_epochs}_{n_samples}_o.csv' if node_order else f'{folder_and_forward_slash}KarateResults_{min_epochs}_{max_epochs}_{n_samples}.csv'
+    prefix = 'WomboCombo'
 
+    # Filepaths created:
+    node_order_string = '_o' if node_order else ''
+    filepathSamples = f'Data/{prefix}Karate{min_epochs}_{max_epochs}_{n_samples}{node_order_string}_Samples_'
+    filepathWeights = f'Weights/{prefix}Karate{min_epochs}_{max_epochs}_{n_samples}{node_order_string}'
+
+    # Load graph and network:
     Adj_karate = torch.tensor(pd.read_csv("Data/Adj_karate.csv", header=None, dtype=int).to_numpy())
-    net = GraphNetNodeOrder(Adj_karate.shape[0], n_layers=5, n_hidden=64) if node_order else GraphNet(
+    n = Adj_karate.shape[0]
+    net = GraphNetNodeOrder(n_nodes=n, n_layers=5, n_hidden=64) if node_order else GraphNet(
         Adj_karate.shape[0])
-    net.save(
-        prefix=f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_',
-        postfix=str(0))
+    net.save(prefix=filepathWeights, postfix=str(0))
 
-    X1 = GibbsSampleStates(Adj_karate, n_samples=n_samples, N=net.n_nodes) if GibbsStart \
+    # Initial sample:
+    X1 = GibbsSampleStates(Adj_karate, n_samples=n_samples, N=n) if GibbsStart \
         else net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
-    torch.save(X1, filename1[:-4] + f'_Samples_{0}' + '.pt')
+    torch.save(X1, filepathSamples + f'{0}.pt')
 
     for i in range(1, ((max_epochs - min_epochs) // epoch_interval) + 1):
         net.train(X1, epochs=epoch_interval)  # Train an extra epoch interval
-        z = X1[torch.randint(n_samples, (1,))][0][net.n_nodes**2:].reshape((net.n_nodes, net.n_nodes))
+        # Take a sample from the GFlowNet part of the previous samples:
+        z = X1[n_samples//2:][torch.randint(n_samples//2, (1,))][0][net.n_nodes**2:].reshape((net.n_nodes, net.n_nodes))
         z, _ = net.get_clustering_list(z)
         z = z.reshape((-1, 1))
+        # Sample again:
         gibbsSamples = GibbsSampleStates(Adj_karate, n_samples=n_samples // 2, N=net.n_nodes, z=z)
         gflowSamples = net.sample_forward(Adj_karate,
                                           n_samples=n_samples // 2,
                                           timer=True,
-                                          saveFilename=filename1[:-4] + f'_Samples_{i * epoch_interval}')
+                                          saveFilename=filepathSamples + f'{i * epoch_interval}')
         X1 = torch.concat((gibbsSamples, gflowSamples), dim=0)
-        net.save(
-            prefix=f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_o_' if node_order else f'{folder_and_forward_slash}Karate_{min_epochs}_{max_epochs}_{n_samples}_',
-            postfix=str(epoch_interval * i))
+        net.save(prefix=filepathWeights, postfix=str(epoch_interval * i))

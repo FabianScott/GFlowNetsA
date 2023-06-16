@@ -1,21 +1,12 @@
 try:
-    from Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch
+    from Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch, GibbsSampleStates
 except ModuleNotFoundError:
-    from GraphClustering.Core.Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch
+    from GraphClustering.Core.Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch, GibbsSampleStates
 from copy import deepcopy
 import networkx as nx
 import pandas as pd
 import numpy as np
 import torch
-
-
-def GibbsSampleStates(adjacency_matrix, n_samples, N):
-    tempSamples = Gibbs_sample_torch(torch.tensor(adjacency_matrix, dtype=torch.float32), T=n_samples * 2)
-    X1 = torch.zeros((n_samples, N ** 2 * 2))
-
-    for i, sample in enumerate(tempSamples):
-        X1[i] = torch.concat((adjacency_matrix.flatten(), torch.tensor(sample.flatten())))
-    return X1
 
 
 if __name__ == '__main__':
@@ -38,19 +29,20 @@ if __name__ == '__main__':
 
     # Filepaths created:
     node_order_string = '_o' if node_order else ''
-    filepathSamples = f'Data/{prefix}Karate{min_epochs}_{max_epochs}_{n_samples}{node_order_string}'
+    filepathSamples = f'Data/{prefix}Karate{min_epochs}_{max_epochs}_{n_samples}{node_order_string}_Samples_'
     filepathWeights = f'Weights/{prefix}Karate{min_epochs}_{max_epochs}_{n_samples}{node_order_string}'
 
     # Load graph and network:
     Adj_karate = torch.tensor(pd.read_csv("Data/Adj_karate.csv", header=None, dtype=int).to_numpy())
-    net = GraphNetNodeOrder(Adj_karate.shape[0], n_layers=5, n_hidden=64) if node_order else GraphNet(
+    n = Adj_karate.shape[0]
+    net = GraphNetNodeOrder(n_nodes=n, n_layers=5, n_hidden=64) if node_order else GraphNet(
         Adj_karate.shape[0])
     net.save(prefix=filepathWeights, postfix=str(0))
 
     # Initial sample:
-    X1 = GibbsSampleStates(Adj_karate, n_samples=n_samples, N=net.n_nodes) if GibbsStart \
+    X1 = GibbsSampleStates(Adj_karate, n_samples=n_samples, N=n) if GibbsStart \
         else net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
-    torch.save(X1, filepathSamples + f'_Samples_{0}' + '.pt')
+    torch.save(X1, filepathSamples + f'{0}.pt')
 
     # Sampling loop:
     for i in range(1, ((max_epochs - min_epochs) // epoch_interval) + 1):
@@ -59,5 +51,5 @@ if __name__ == '__main__':
         X1 = net.sample_forward(Adj_karate,
                                 n_samples=n_samples,
                                 timer=True,
-                                saveFilename=filepathSamples + f'_Samples_{i * epoch_interval}')
+                                saveFilename=filepathSamples + f'{i * epoch_interval}')
         net.save(prefix=filepathWeights, postfix=str(epoch_interval * i))
