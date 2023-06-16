@@ -1035,6 +1035,8 @@ def allPosteriors(A_random, a, b, A_alpha, log, joint = False):
 
 
 # %% EXTRAS
+
+
 def print_Latex_table(table, significantFigures=3, headerRow=None, indexColumn=None):
     """
     Given a table (2D array), print the values rounded to
@@ -1081,6 +1083,13 @@ def signif(x, p):
     mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
     return np.round(x * mags) / mags
 
+
+def return_0():
+    return 0
+
+
+def returnSet():
+    return set()
 
 def check_gpu():
     print(f'Cuda is {"available" if torch.cuda.is_available() else "not available"}')
@@ -1236,6 +1245,84 @@ def compare_results_small_graphs(filename,
                 test_results.append(test_temp)
             pd.DataFrame(test_results).to_csv(filename[:-4] + '_TEST.csv')
     return fully_trained_networks
+
+
+def compareIRMSamples(tensors: list, net, nbins=100, names=None, filenameSave='', title='', n=5, topNFilename='', alpha=.6, runGibbs=False, postfixSaveGibbs=''):
+    """
+    Plot a histogram of clusterings per IRM values.
+    Can also save the plots.
+    :param tensors:
+    :param nbins:
+    :param names:
+    :param filenameSave:
+    :param title:
+    :param topNFilename: Will be postfixed using the name provided in names
+    :return:
+    """
+    if names is None:
+        names = [str(el) for el in range(1, 1 + len(tensors))]
+    # tensorsFlat = torch.concat(tensors, dim=0)
+    IRM_lists = []
+
+    for name, tensors in zip(names, tensors):
+        cluster_lists = defaultdict(return_0)
+
+        if name == 'Gibbs Sampler' and not runGibbs:
+            try:
+                IRM_list = pd.read_csv(f'Data/IRMGibbs{postfixSaveGibbs}.csv', index_col=0).values.T[0]
+                uniqueCount = pd.read_csv(f'Data/uniqueCountGibbs{postfixSaveGibbs}.csv', index_col=0).values.T[0]
+                uniqueIRM = pd.read_csv(f'Data/uniqueIRMGibbs{postfixSaveGibbs}.csv', index_col=0).values.T[0]
+                plt.hist(IRM_list, label=name, bins=nbins, alpha=0.6)
+                plt.plot(uniqueIRM, uniqueCount, label=f'Unique Clusterings for {name}', alpha=alpha)
+
+                continue
+            except FileNotFoundError:
+                pass
+        IRM_list = []
+        IRM_dict = defaultdict(returnSet)
+        for state in tqdm(tensors, desc=f'Calculating IRM for {name} States'):
+            adj_mat, cluster_mat = net.get_matrices_from_state(state)
+            cluster_list, _ = net.get_clustering_list(cluster_mat)
+            if not sum(cluster_list == 0):
+                cluster_list -= 1
+            IRMValue = int(torch_posterior(adj_mat, cluster_list))
+            tempTuple = tuple(cluster_list.detach().numpy())
+            IRM_list.append(IRMValue)
+            cluster_lists[tempTuple] += 1
+            IRM_dict[IRMValue].add(tempTuple)
+
+        uniqueCount, uniqueIRM = [], []
+        for IRMValue, clusterSet in IRM_dict.items():
+            uniqueCount.append(len(clusterSet))
+            uniqueIRM.append(IRMValue)
+        uniqueSortIdx = np.argsort(uniqueIRM)
+        uniqueCount, uniqueIRM = np.array(uniqueCount)[uniqueSortIdx], np.array(uniqueIRM)[uniqueSortIdx]
+
+        IRM_list = np.array(IRM_list)
+        if name == 'Gibbs Sampler':
+            pd.DataFrame(uniqueCount).to_csv(f'Data/uniqueCountGibbs{postfixSaveGibbs}.csv')
+            pd.DataFrame(uniqueIRM).to_csv(f'Data/uniqueIRMGibbs{postfixSaveGibbs}.csv')
+            pd.DataFrame(IRM_list).to_csv(f'Data/IRMGibbs{postfixSaveGibbs}.csv')
+
+        plt.hist(IRM_list, label=name, bins=nbins, alpha=alpha)
+        plt.plot(uniqueIRM, uniqueCount, label=f'Unique Clusterings for {name}', alpha=alpha)
+        clusters = [cluster for cluster in cluster_lists.keys()]
+        counts = [count for count in cluster_lists.values()]
+        sort_idx = np.argsort(counts)
+
+        top_n = np.array(clusters)[sort_idx[-n:]]
+        if topNFilename: pd.DataFrame(top_n).to_csv(topNFilename + name + '.csv')
+        print(f'\n{name}\tMean: {np.mean(IRM_list)}\tMode: {stats.mode(IRM_list)}\tMax: {np.max(IRM_list)}')
+
+    plt.ylabel('Count')
+    plt.xlabel('Log IRM Values')
+    plt.title(title)
+    plt.legend()
+    if filenameSave:
+        plt.savefig(filenameSave)
+    plt.show()
+
+    return IRM_lists
 
 
 def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, sample_posteriors_numpy = None, gibbs_sample_posteriors=None, log = True, saveFilename='', title='', alpha=.6):

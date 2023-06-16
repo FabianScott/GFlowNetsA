@@ -12,15 +12,9 @@ sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(), "..", "Data"))
 
 
-def return_0():
-    return 0
 
 
-def returnSet():
-    return set()
-
-
-def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', title='', n=5, topNFilename='', alpha=.6, runGibbs=False):
+def compareIRMSamples(tensors: list, net, nbins=100, names=None, filenameSave='', title='', n=5, topNFilename='', alpha=.6, runGibbs=False, postfixSaveGibbs=''):
     """
     Plot a histogram of clusterings per IRM values.
     Can also save the plots.
@@ -42,9 +36,9 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
 
         if name == 'Gibbs Sampler' and not runGibbs:
             try:
-                IRM_list = pd.read_csv('Data/IRMGibbs.csv', index_col=0).values.T[0]
-                uniqueCount = pd.read_csv('Data/uniqueCountGibbs.csv', index_col=0).values.T[0]
-                uniqueIRM = pd.read_csv('Data/uniqueIRMGibbs.csv', index_col=0).values.T[0]
+                IRM_list = pd.read_csv(f'Data/IRMGibbs{postfixSaveGibbs}.csv', index_col=0).values.T[0]
+                uniqueCount = pd.read_csv(f'Data/uniqueCountGibbs{postfixSaveGibbs}.csv', index_col=0).values.T[0]
+                uniqueIRM = pd.read_csv(f'Data/uniqueIRMGibbs{postfixSaveGibbs}.csv', index_col=0).values.T[0]
                 plt.hist(IRM_list, label=name, bins=nbins, alpha=0.6)
                 plt.plot(uniqueIRM, uniqueCount, label=f'Unique Clusterings for {name}', alpha=alpha)
 
@@ -73,9 +67,9 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
 
         IRM_list = np.array(IRM_list)
         if name == 'Gibbs Sampler':
-            pd.DataFrame(uniqueCount).to_csv('Data/uniqueCountGibbs.csv')
-            pd.DataFrame(uniqueIRM).to_csv('Data/uniqueIRMGibbs.csv')
-            pd.DataFrame(IRM_list).to_csv('Data/IRMGibbs.csv')
+            pd.DataFrame(uniqueCount).to_csv(f'Data/uniqueCountGibbs{postfixSaveGibbs}.csv')
+            pd.DataFrame(uniqueIRM).to_csv(f'Data/uniqueIRMGibbs{postfixSaveGibbs}.csv')
+            pd.DataFrame(IRM_list).to_csv(f'Data/IRMGibbs{postfixSaveGibbs}.csv')
 
         plt.hist(IRM_list, label=name, bins=nbins, alpha=alpha)
         plt.plot(uniqueIRM, uniqueCount, label=f'Unique Clusterings for {name}', alpha=alpha)
