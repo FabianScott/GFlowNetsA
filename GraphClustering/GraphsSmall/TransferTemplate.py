@@ -1,4 +1,4 @@
-from GraphClustering.Core.Core import *
+from GraphClustering import *
 import pandas as pd
 
 

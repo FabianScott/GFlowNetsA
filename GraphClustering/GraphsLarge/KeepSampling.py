@@ -1,4 +1,4 @@
-from GraphClustering.Core.Core import GraphNetNodeOrder, torch_posterior
+from GraphClustering import GraphNetNodeOrder, torch_posterior
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import pandas as pd

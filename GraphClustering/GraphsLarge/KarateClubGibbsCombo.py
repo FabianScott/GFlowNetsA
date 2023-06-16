@@ -1,7 +1,7 @@
 try:
     from Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch, GibbsSampleStates
 except ModuleNotFoundError:
-    from GraphClustering.Core.Core import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch, GibbsSampleStates
+    from GraphClustering import GraphNet, GraphNetNodeOrder, torch_posterior, check_gpu, Gibbs_sample_torch, GibbsSampleStates
 from copy import deepcopy
 import networkx as nx
 import pandas as pd

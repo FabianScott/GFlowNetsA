@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from GraphClustering import *
 
 
 def errorPlot(values, labels, alpha=1., prefix='', transfer=''):
@@ -17,6 +18,7 @@ def errorPlot(values, labels, alpha=1., prefix='', transfer=''):
 
 
 if __name__ == '__main__':
+
     alpha = 1.
     max_epochs = '99'
     prefix = f'{max_epochs}_'

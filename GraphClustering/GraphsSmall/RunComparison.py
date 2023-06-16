@@ -3,7 +3,7 @@ import pandas as pd
 try:
     from Core import compare_results_small_graphs, print_Latex_table
 except ModuleNotFoundError:
-    from GraphClustering.Core.Core import compare_results_small_graphs, print_Latex_table
+    from GraphClustering import compare_results_small_graphs, print_Latex_table
 
 if __name__ == '__main__':
     min_N = 6

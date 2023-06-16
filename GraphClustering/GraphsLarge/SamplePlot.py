@@ -1,4 +1,4 @@
-from GraphClustering.Core.Core import GraphNet, torch_posterior, Gibbs_sample_torch
+from GraphClustering import GraphNet, torch_posterior, Gibbs_sample_torch
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -16,7 +16,11 @@ def return_0():
     return 0
 
 
-def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', title='', n=5, topNFilename=''):
+def returnSet():
+    return set()
+
+
+def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', title='', n=5, topNFilename='', alpha=.6, runGibbs=False):
     """
     Plot a histogram of clusterings per IRM values.
     Can also save the plots.
@@ -36,28 +40,45 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
     for name, tensors in zip(names, tensors):
         cluster_lists = defaultdict(return_0)
 
-        if name == 'Gibbs Sampler':
+        if name == 'Gibbs Sampler' and not runGibbs:
             try:
                 IRM_list = pd.read_csv('Data/IRMGibbs.csv', index_col=0).values.T[0]
+                uniqueCount = pd.read_csv('Data/uniqueCountGibbs.csv', index_col=0).values.T[0]
+                uniqueIRM = pd.read_csv('Data/uniqueIRMGibbs.csv', index_col=0).values.T[0]
                 plt.hist(IRM_list, label=name, bins=nbins, alpha=0.6)
+                plt.plot(uniqueIRM, uniqueCount, label=f'Unique Clusterings for {name}', alpha=alpha)
+
                 continue
             except FileNotFoundError:
                 pass
         IRM_list = []
+        IRM_dict = defaultdict(returnSet)
         for state in tqdm(tensors, desc=f'Calculating IRM for {name} States'):
             adj_mat, cluster_mat = net.get_matrices_from_state(state)
             cluster_list, _ = net.get_clustering_list(cluster_mat)
             if not sum(cluster_list == 0):
                 cluster_list -= 1
-            IRM_list.append(int(torch_posterior(adj_mat, cluster_list)))
-            cluster_lists[tuple(cluster_list.detach().numpy())] += 1
+            IRMValue = int(torch_posterior(adj_mat, cluster_list))
+            tempTuple = tuple(cluster_list.detach().numpy())
+            IRM_list.append(IRMValue)
+            cluster_lists[tempTuple] += 1
+            IRM_dict[IRMValue].add(tempTuple)
+
+        uniqueCount, uniqueIRM = [], []
+        for IRMValue, clusterSet in IRM_dict.items():
+            uniqueCount.append(len(clusterSet))
+            uniqueIRM.append(IRMValue)
+        uniqueSortIdx = np.argsort(uniqueIRM)
+        uniqueCount, uniqueIRM = np.array(uniqueCount)[uniqueSortIdx], np.array(uniqueIRM)[uniqueSortIdx]
 
         IRM_list = np.array(IRM_list)
         if name == 'Gibbs Sampler':
+            pd.DataFrame(uniqueCount).to_csv('Data/uniqueCountGibbs.csv')
+            pd.DataFrame(uniqueIRM).to_csv('Data/uniqueIRMGibbs.csv')
             pd.DataFrame(IRM_list).to_csv('Data/IRMGibbs.csv')
 
-        plt.hist(IRM_list, label=name, bins=nbins, alpha=0.6)
-
+        plt.hist(IRM_list, label=name, bins=nbins, alpha=alpha)
+        plt.plot(uniqueIRM, uniqueCount, label=f'Unique Clusterings for {name}', alpha=alpha)
         clusters = [cluster for cluster in cluster_lists.keys()]
         counts = [count for count in cluster_lists.values()]
         sort_idx = np.argsort(counts)
@@ -79,9 +100,9 @@ def compareIRMSamples(tensors: list, nbins=100, names=None, filenameSave='', tit
 
 if __name__ == '__main__':
     run_Gibbs = False  # There is a saved run for 10_000 samples in this folder
-    prefixString = 'Gibbs'
+    prefixString = 'New'
     epochs = 0
-    for epochs in range(100, 501, 100):
+    for epochs in range(0, 100, 100):
         net = GraphNet(n_nodes=34)
         fname = f'Data/{prefixString}KarateResults_0_500_10000_o_Samples_{epochs}.pt'
         netSamples = net.load_samples(fname)
@@ -102,4 +123,5 @@ if __name__ == '__main__':
                               title=f'Histogram of log IRM values for GFlowNet vs GibbsSampler\non Zachary Karate Club graph after {epochs} epochs',
                               filenameSave=f'Plots/{prefixString}ComparisonGraph10000Samples_{epochs}.png',
                               topNFilename=f'Data/{prefixString}TopClusterings_{epochs}_',
-                              n=5)
+                              n=5,
+                              runGibbs=False)
