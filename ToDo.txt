@@ -52,7 +52,7 @@ Sørgsmål til Mikkel:
 
 Report:
 
-	-Discussion (Gabriel & Fabian)
-	-Conclusion (Gabriel & Fabian)
-	-Abstract (Everyone)
-	-Formal requirements (Nikolaj)
+	- Discussion (Gabriel & Fabian)
+	- Conclusion (Gabriel & Fabian)
+	- Abstract (Everyone)
+	- Formal requirements (Nikolaj)
