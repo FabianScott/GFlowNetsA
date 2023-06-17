@@ -3,7 +3,7 @@ from GraphClustering import *
 if __name__ == '__main__':
     n_min = 3
     n_max = 6
-    epochs = 50
+    epochs = 100
 
     for n in range(n_min, n_max+1):
         n_samples = 1000
@@ -31,13 +31,15 @@ if __name__ == '__main__':
         # cluster_post = np.exp(cluster_post)
         # gibbsDistribution = np.exp(gibbsDistribution)
 
-        compareIRMSamples([X1, tempSamples], net=net,
+        compareIRMSamples(tensors=[X1, tempSamples], net=net,
                           names=['GFlowNet', 'Gibbs Sampler'],
-                          title=f'Histogram of log IRM values for GFlowNet vs GibbsSampler\non graph of {n} nodes after {epochs} of training',
-                          filenameSave=f'Plots/SmallComparisonPlot_{n}.png',
+                          title=f'Histogram of log IRM values for GFlowNet vs GibbsSampler'
+                                f'\non graph of {n} nodes after {epochs} epochs of training',
+                          filenameSave=f'Plots/SmallComparisonPlot_{n}_{epochs}.png',
                           # topNFilename=f'Data/{prefixString}TopClusterings_{epochs}_',
                           n=5,
                           runGibbs=True,
-                          postfixSaveGibbs=f'small_{n}'
+                          postfixSaveGibbs=f'small_{n}',
+                          roundTo=2
                           )
 

@@ -1247,7 +1247,14 @@ def compare_results_small_graphs(filename,
     return fully_trained_networks
 
 
-def compareIRMSamples(tensors: list, net, nbins=100, names=None, filenameSave='', title='', n=5, topNFilename='', alpha=.6, runGibbs=False, postfixSaveGibbs=''):
+def compareIRMSamples(tensors: list, net,
+                      nbins=100, names=None,
+                      filenameSave='', title='',
+                      n=5, topNFilename='',
+                      alpha=.6,
+                      runGibbs=False,
+                      postfixSaveGibbs='',
+                      roundTo=0):
     """
     Plot a histogram of clusterings per IRM values.
     Can also save the plots.
@@ -1264,7 +1271,7 @@ def compareIRMSamples(tensors: list, net, nbins=100, names=None, filenameSave=''
     # tensorsFlat = torch.concat(tensors, dim=0)
     IRM_lists = []
 
-    for name, tensors in zip(names, tensors):
+    for name, tensor in zip(names, tensors):
         cluster_lists = defaultdict(return_0)
 
         if name == 'Gibbs Sampler' and not runGibbs:
@@ -1280,12 +1287,13 @@ def compareIRMSamples(tensors: list, net, nbins=100, names=None, filenameSave=''
                 pass
         IRM_list = []
         IRM_dict = defaultdict(returnSet)
-        for state in tqdm(tensors, desc=f'Calculating IRM for {name} States'):
+        for state in tqdm(tensor, desc=f'Calculating IRM for {name} States'):
             adj_mat, cluster_mat = net.get_matrices_from_state(state)
             cluster_list, _ = net.get_clustering_list(cluster_mat)
             if not sum(cluster_list == 0):
                 cluster_list -= 1
-            IRMValue = int(torch_posterior(adj_mat, cluster_list))
+            IRMValue = int(torch_posterior(adj_mat, cluster_list)) if roundTo == 0 \
+                else float(torch.round(torch_posterior(adj_mat, cluster_list), decimals=roundTo))
             tempTuple = tuple(cluster_list.detach().numpy())
             IRM_list.append(IRMValue)
             cluster_lists[tempTuple] += 1
