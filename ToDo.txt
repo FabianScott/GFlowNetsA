@@ -48,3 +48,11 @@ Sørgsmål til Mikkel:
             - Calculate IRM (Which one to chose)
             - Random (leading to the expected value on average)
         - Use samples from both methods?
+
+
+Report:
+
+	-Discussion (Gabriel & Fabian)
+	-Conclusion (Gabriel & Fabian)
+	-Abstract (Everyone)
+	-Formal requirements (Nikolaj)
