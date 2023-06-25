@@ -4,3 +4,4 @@ The basic class of this repository is the GraphNet, found in the Graphclustering
 and sample graph clusterings from a given adjacency matrix. 
 The graph clustering folder is setup with an __init__ file, such that the classes and functions in core can be used across the entire library.
 
+To run the GFlowNet on small synthetically created graphs use the script GraphsSmall/RunComparison.py, for the karate graph use GraphsLarge/RunKarateClub.py
