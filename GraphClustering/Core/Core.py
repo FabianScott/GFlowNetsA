@@ -666,21 +666,21 @@ class GraphNetNodeOrder(GraphNet):
         # assert not any((torch.isinf(output).flatten() + torch.isnan(output).flatten()))
         return output
 
-    def sample_forward(self, adjacency_matrix, n_samples=None, timer=False, saveFilename=None):
+    def sample_forward(self, adjacency_matrix, nSamples=None, timer=False, saveFilename=None):
         """
         Given an adjacency matrix, cluster some graphs and return
         'epochs' number of final states reached using the current
         forward model. If epochs is left as None use self.epochs.
         :param adjacency_matrix: matrix (n_nodes, n_nodes)
-        :param n_samples: (None or int)
+        :param nSamples: (None or int)
         :return:
         """
 
-        if n_samples is None:
-            n_samples = self.epochs
+        if nSamples is None:
+            nSamples = self.epochs
 
-        final_states = torch.zeros((n_samples, self.state_length))
-        for epoch in tqdm(range(n_samples), desc='Sampling') if timer else range(n_samples):
+        final_states = torch.zeros((nSamples, self.state_length))
+        for epoch in tqdm(range(nSamples), desc='Sampling') if timer else range(nSamples):
             # Initialize the empty clustering and one-hot vector
             clustering_matrix = torch.zeros(self.size)
             clustering_list = torch.zeros(self.n_nodes)
@@ -1155,7 +1155,7 @@ def compare_results_small_graphs(filename,
             # cluster_prob_dict = net.full_sample_distribution_G(adjacency_matrix=adjacency_matrix,
             #                                                    log=True,
             #                                                    fix=False)
-            X1 = net.sample_forward(adjacency_matrix, n_samples=n_samples_distribution)
+            X1 = net.sample_forward(adjacency_matrix, nSamples=n_samples_distribution)
             sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
             sort_idx = np.argsort(cluster_post)
             inf_mask = sample_posteriors_numpy == -np.inf
@@ -1168,11 +1168,9 @@ def compare_results_small_graphs(filename,
                 #                                                                 log=True,
                 #                                                                 fix=False)
                 # fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
-                X1 = net.sample_forward(adjacency_matrix, n_samples=n_samples_distribution, timer=True)
+                X1 = net.sample_forward(adjacency_matrix, nSamples=n_samples_distribution, timer=True)
                 sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
                 sort_idx = np.argsort(cluster_post)
-                inf_mask = sample_posteriors_numpy == -np.inf
-                sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
                 difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
                 file.write(f'{difference},')
             file.write('\n')
@@ -1183,9 +1181,7 @@ def compare_results_small_graphs(filename,
                 for i, sample in enumerate(gibbsSamples):
                     tempSamples[i] = torch.concat((adjacency_matrix.flatten(), torch.tensor(sample.flatten())))
                 # gibbsSamples = torch.tensor([ for sample in gibbsSamples])
-                gibbsDistribution = empiricalSampleDistribution(tempSamples, N, numpy=True, log=True)
-                inf_mask = gibbsDistribution == -np.inf
-                gibbsDistribution[inf_mask] = np.min(gibbsDistribution[np.logical_not(inf_mask)])
+                gibbsDistribution = empiricalSampleDistribution(tempSamples, N, numpy=True, log=True, mask_inf=True)
                 net.save(f'Data/SmallNet_{N}_{max_epochs}')
                 plot_posterior(cluster_post,
                                sort_idx=sort_idx,
@@ -1202,10 +1198,8 @@ def compare_results_small_graphs(filename,
                 test_temp = []
                 adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
                 cluster_post = allPosteriors(adjacency_matrix_test, a, b, A_alpha, log=True, joint=False)
-                X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution)
+                X1 = net.sample_forward(adjacency_matrix_test, nSamples=n_samples_distribution)
                 sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
-                inf_mask = sample_posteriors_numpy == -np.inf
-                sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
                 sort_idx = np.argsort(cluster_post)
                 difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
                 test_temp.append(difference)
@@ -1215,10 +1209,8 @@ def compare_results_small_graphs(filename,
                     #                                                                 log=True,
                     #                                                                 fix=False)
                     # fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
-                    X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution, timer=True)
+                    X1 = net.sample_forward(adjacency_matrix_test, nSamples=n_samples_distribution, timer=True)
                     sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
-                    inf_mask = sample_posteriors_numpy == -np.inf
-                    sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
                     sort_idx = np.argsort(cluster_post)
                     difference = sum(abs(cluster_post[sort_idx] - sample_posteriors_numpy[sort_idx]))
                     test_temp.append(difference)
@@ -1232,8 +1224,6 @@ def compare_results_small_graphs(filename,
                         tempSamples[i] = torch.concat((adjacency_matrix_test.flatten(), torch.tensor(sample.flatten())))
                     # gibbsSamples = torch.tensor([ for sample in gibbsSamples])
                     gibbsDistribution = empiricalSampleDistribution(tempSamples, N, numpy=True, log=True)
-                    inf_mask = gibbsDistribution == -np.inf
-                    gibbsDistribution[inf_mask] = np.min(gibbsDistribution[np.logical_not(inf_mask)])
 
                     plot_posterior(cluster_post,
                                    sort_idx=sort_idx,
@@ -1369,19 +1359,19 @@ def plot_posterior(cluster_post, sort_idx = None, net_posteriors_numpy = None, s
 
 # %% Gibbs Sampler
 
-def GibbsSampleStates(adjacency_matrix, n_samples, N, z=None):
+def GibbsSampleStates(adjacency_matrix, nSamples, N, z=None):
     """
     Samples states using the Gibbs Sampler and returns
     them in a tensor compatible with the train function
     of the GFlowNet object.
     :param adjacency_matrix:
-    :param n_samples:
+    :param nSamples:
     :param N:
     :param z:
     :return:
     """
-    tempSamples = Gibbs_sample_torch(torch.tensor(adjacency_matrix, dtype=torch.float32), T=n_samples * 2, z=z)
-    X1 = torch.zeros((n_samples, N ** 2 * 2))
+    tempSamples = Gibbs_sample_torch(torch.tensor(adjacency_matrix, dtype=torch.float32), T=nSamples * 2, z=z)
+    X1 = torch.zeros((nSamples, N ** 2 * 2))
 
     for i, sample in enumerate(tempSamples):
         X1[i] = torch.concat((adjacency_matrix.flatten(), torch.tensor(sample.flatten())))

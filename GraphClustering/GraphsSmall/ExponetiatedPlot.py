@@ -10,9 +10,9 @@ if __name__ == '__main__':
         net = GraphNetNodeOrder(n_nodes=n)
         net.load_forward(prefix=f'Data/SmallNet_{n}_99')
         adjacency_matrix, _ = IRM_graph(a, b, A_alpha, N=n)
-        X = net.sample_forward(adjacency_matrix, n_samples=n_samples, timer=True)
+        X = net.sample_forward(adjacency_matrix, nSamples=n_samples, timer=True)
         net.train(X, epochs=50)
-        X1 = net.sample_forward(adjacency_matrix, n_samples=n_samples, timer=True)
+        X1 = net.sample_forward(adjacency_matrix, nSamples=n_samples, timer=True)
 
         sample_posteriors_numpy = empiricalSampleDistribution(X1, n_nodes=n, log=False)
         cluster_post = allPosteriors(adjacency_matrix, a, b, A_alpha, log=True, joint=False)

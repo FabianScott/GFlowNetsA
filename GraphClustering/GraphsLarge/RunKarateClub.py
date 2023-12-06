@@ -40,8 +40,8 @@ if __name__ == '__main__':
     net.save(prefix=filepathWeights, postfix=str(0))
 
     # Initial sample:
-    X1 = GibbsSampleStates(Adj_karate, n_samples=n_samples, N=n) if GibbsStart \
-        else net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
+    X1 = GibbsSampleStates(Adj_karate, nSamples=n_samples, N=n) if GibbsStart \
+        else net.sample_forward(Adj_karate, nSamples=n_samples, timer=True)
     torch.save(X1, filepathSamples + f'{0}.pt')
 
     # Sampling loop:
@@ -49,7 +49,7 @@ if __name__ == '__main__':
         net.train(X1, epochs=epoch_interval // 2)  # Train an extra epoch interval
 
         X1 = net.sample_forward(Adj_karate,
-                                n_samples=n_samples,
+                                nSamples=n_samples,
                                 timer=True,
                                 saveFilename=filepathSamples + f'{i * epoch_interval}')
         net.save(prefix=filepathWeights, postfix=str(epoch_interval * i))

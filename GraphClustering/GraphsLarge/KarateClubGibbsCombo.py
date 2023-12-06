@@ -20,43 +20,44 @@ if __name__ == '__main__':
     """
     check_gpu()
     # 9000 for the n_layers=5, n_hidden=64
-    n_samples = 10000   # Must be greater than 1
-    epoch_interval = 500
-    min_epochs = 0
-    max_epochs = 1000
-    node_order = True
+    nSamples = 10   # Must be greater than 1
+    epochInterval = 1
+    minEpochs = 0
+    maxEpochs = 2
+    nodeOrder = True
     GibbsStart = False
-    folder_and_forward_slash = 'Data/GibbsHalf'
+    GibbsProportion = .6
+    # folder_and_forward_slash = 'Data/GibbsHalf'
     prefix = 'WomboCombo'
 
     # Filepaths created:
-    node_order_string = '_o' if node_order else ''
-    filepathSamples = f'Data/{prefix}Karate{min_epochs}_{max_epochs}_{n_samples}{node_order_string}_Samples_'
-    filepathWeights = f'Weights/{prefix}Karate{min_epochs}_{max_epochs}_{n_samples}{node_order_string}'
+    nodeOrderString = '_o' if nodeOrder else ''
+    filepathSamples = f'Data/{prefix}Karate{minEpochs}_{maxEpochs}_{nSamples}{nodeOrderString}_Samples_'
+    filepathWeights = f'Weights/{prefix}Karate{minEpochs}_{maxEpochs}_{nSamples}{nodeOrderString}'
 
     # Load graph and network:
     Adj_karate = torch.tensor(pd.read_csv("Data/Adj_karate.csv", header=None, dtype=int).to_numpy())
     n = Adj_karate.shape[0]
-    net = GraphNetNodeOrder(n_nodes=n, n_layers=5, n_hidden=64) if node_order else GraphNet(
+    net = GraphNetNodeOrder(n_nodes=n, nLayers=5, nHidden=64) if nodeOrder else GraphNet(
         Adj_karate.shape[0])
     net.save(prefix=filepathWeights, postfix=str(0))
 
     # Initial sample:
-    X1 = GibbsSampleStates(Adj_karate, n_samples=n_samples, N=n) if GibbsStart \
-        else net.sample_forward(Adj_karate, n_samples=n_samples, timer=True)
+    X1 = GibbsSampleStates(Adj_karate, nSamples=nSamples, N=n) if GibbsStart \
+        else net.sample_forward(Adj_karate, nSamples=nSamples, timer=True)
     torch.save(X1, filepathSamples + f'{0}.pt')
+    nGibbs = int(nSamples * GibbsProportion)
 
-    for i in range(1, ((max_epochs - min_epochs) // epoch_interval) + 1):
-        net.train(X1, epochs=epoch_interval)  # Train an extra epoch interval
+    for i in range(1, ((maxEpochs - minEpochs) // epochInterval) + 1):
+        net.train(X1, epochs=epochInterval)  # Train an extra epoch interval
         # Take a sample from the GFlowNet part of the previous samples:
-        z = X1[n_samples//2:][torch.randint(n_samples//2, (1,))][0][net.n_nodes**2:].reshape((net.n_nodes, net.n_nodes))
-        z, _ = net.get_clustering_list(z)
-        z = z.reshape((-1, 1))
+        z = X1[nGibbs:][torch.randint(nSamples - nGibbs, (1,))][0][net.n_nodes ** 2:].reshape((net.n_nodes, net.n_nodes))
+        z = net.get_clustering_list(z)[0].reshape((-1, 1))
         # Sample again:
-        gibbsSamples = GibbsSampleStates(Adj_karate, n_samples=n_samples // 2, N=net.n_nodes, z=z)
+        gibbsSamples = GibbsSampleStates(Adj_karate, nSamples=nGibbs, N=net.n_nodes, z=z)
         gflowSamples = net.sample_forward(Adj_karate,
-                                          n_samples=n_samples // 2,
+                                          nSamples=nSamples - nGibbs,
                                           timer=True,
-                                          saveFilename=filepathSamples + f'{i * epoch_interval}')
+                                          saveFilename=filepathSamples + f'{i * epochInterval}')
         X1 = torch.concat((gibbsSamples, gflowSamples), dim=0)
-        net.save(prefix=filepathWeights, postfix=str(epoch_interval * i))
+        net.save(prefix=filepathWeights, postfix=str(epochInterval * i))

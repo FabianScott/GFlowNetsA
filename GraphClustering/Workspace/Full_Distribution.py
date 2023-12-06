@@ -153,7 +153,7 @@ def time_func(func, n = 1, *kwargs):
 def empiricalSampleDistribution(n_nodes, n_samples, numpy=False):
     clusters_all = allPermutations(n_nodes)
     clusters_all_tensor = torch.tensor(clusters_all + 1)
-    X1 = net.sample_forward(adjacency_matrix=A_random, n_samples=n_samples)
+    X1 = net.sample_forward(adjacency_matrix=A_random, nSamples=n_samples)
 
     sample_posterior_counts = torch.zeros(len(clusters_all))
 
@@ -383,7 +383,7 @@ if __name__ == '__main__':
         # sys.exit()
 
     net = GraphNetNodeOrder(n_nodes=adjacency_matrix.size()[0], a = a, b = b, A_alpha = A_alpha)
-    X = net.sample_forward(adjacency_matrix=A_random, n_samples = train_samples)
+    X = net.sample_forward(adjacency_matrix=A_random, nSamples= train_samples)
 
     # Sample once before and after training
     for i in range(2):

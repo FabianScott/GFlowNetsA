@@ -9,7 +9,7 @@ def transferLearning(fully_trained_networks, max_epochs, epoch_interval, n_sampl
         test_temp = []
         adjacency_matrix_test, clusters_test = IRM_graph(A_alpha=A_alpha, a=a, b=b, N=N)
         cluster_post = allPosteriors(adjacency_matrix_test, a, b, A_alpha, log=True, joint=False)
-        X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution)
+        X1 = net.sample_forward(adjacency_matrix_test, nSamples=n_samples_distribution)
         sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
         inf_mask = sample_posteriors_numpy == -np.inf
         sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
@@ -22,7 +22,7 @@ def transferLearning(fully_trained_networks, max_epochs, epoch_interval, n_sampl
             #                                                                 log=True,
             #                                                                 fix=False)
             # fixed_probs = net.fix_net_clusters(cluster_prob_dict, log=True)
-            X1 = net.sample_forward(adjacency_matrix_test, n_samples=n_samples_distribution, timer=True)
+            X1 = net.sample_forward(adjacency_matrix_test, nSamples=n_samples_distribution, timer=True)
             sample_posteriors_numpy = empiricalSampleDistribution(X1, N, log=True, numpy=True)
             inf_mask = sample_posteriors_numpy == -np.inf
             sample_posteriors_numpy[inf_mask] = np.min(sample_posteriors_numpy[np.logical_not(inf_mask)])
